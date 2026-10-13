@@ -1,0 +1,219 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // 1. Collection: customers
+    //    Document ID: {uid} (Firebase Auth UID)
+    //    Fields:
+    //      - uid: string (required on create, must match auth.uid)
+    //      - name: string (required on create, customer full name)
+    //      - email: string (optional/required if provided, email address)
+    //      - mobile: string (optional, customer phone number)
+    //      - address: map (optional, customer address object)
+    //      - fcmToken: string (optional, push notification token)
+    //      - createdAt: string | timestamp (optional)
+    //      - updatedAt: string | timestamp (optional)
+    //
+    // 2. Subcollections under customers/{uid}:
+    //      - /cart/{document=**}: Cart documents (e.g. mainCart)
+    //      - /orders/{orderId}: Customer copy of orders (e.g. KADAI-123456)
+    //      - /saved_addresses/{addressId}: Customer saved delivery addresses
+    //
+    // 3. Collection: orders
+    //    Document ID: {orderId} (e.g. KADAI-123456)
+    //    Fields:
+    //      - id: string (optional, order ID)
+    //      - customerId: string (required, must match request.auth.uid)
+    //      - customerName: string (optional, max 100 chars)
+    //      - customerMobile: string (optional, max 40 chars)
+    //      - deliveryAddress: string | map (optional, max 1000 chars if string)
+    //      - items: list (optional, max 200 items)
+    //      - paymentMethod: string (optional, max 100 chars)
+    //      - totalAmount: number (optional, >= 0)
+    //      - discount: number (optional, >= 0)
+    //      - instruction: string | null (optional, max 500 chars)
+    //      - status: string (optional, max 50 chars)
+    //      - createdAt: string | timestamp (optional)
+    //
+    // 4. Collection: users (Sellers / Merchants)
+    //    Document ID: {sellerId} (Firebase Auth UID of seller)
+    //    Fields:
+    //      - role: string ('seller' for discoverable seller profiles)
+    //      - shopName: string (optional)
+    //      - address: map (optional, shop address and coordinates)
+    //      - phone: string (optional)
+    //
+    // 5. Subcollections under users/{sellerId}:
+    //      - /local_orders/{orderId}: Order notifications for local delivery
+    //      - /global_orders/{orderId}: Order notifications for global/courier delivery
+    //      - /inventory/{itemId}: Local shop inventory items
+    //      - /global_inventory/{itemId}: Global shop inventory items
+    //
+    // 6. Master/Reference Collections:
+    //      - /products/{productId}: Central product catalog (read-only for signed-in users)
+    //      - /location_master/{document=**}: Country/state metadata (read-only for signed-in users)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Domain validator for root /orders/{orderId}
+    function isValidOrder(data) {
+      return ('customerId' in data) && data.customerId == request.auth.uid
+        && (!('customerName' in data) || (data.customerName is string && data.customerName.size() <= 100))
+        && (!('customerMobile' in data) || (data.customerMobile is string && data.customerMobile.size() <= 40))
+        && (!('paymentMethod' in data) || (data.paymentMethod is string && data.paymentMethod.size() <= 100))
+        && (!('totalAmount' in data) || (data.totalAmount is number && data.totalAmount >= 0))
+        && (!('discount' in data) || (data.discount is number && data.discount >= 0))
+        && (!('status' in data) || (data.status is string && data.status.size() <= 50))
+        && (!('items' in data) || (data.items is list && data.items.size() <= 200))
+        && (!('deliveryAddress' in data) || data.deliveryAddress is map || (data.deliveryAddress is string && data.deliveryAddress.size() <= 1000))
+        && (!('instruction' in data) || data.instruction == null || (data.instruction is string && data.instruction.size() <= 500))
+        && (!('id' in data) || (data.id is string && data.id.size() <= 100))
+        && (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 100) || data.createdAt is timestamp);
+    }
+
+    // Domain validator for seller order notifications under /users/{sellerId}/local_orders and global_orders
+    function isValidSellerOrder(data) {
+      return ('customerUid' in data) && data.customerUid == request.auth.uid
+        && (!('orderId' in data) || (data.orderId is string && data.orderId.size() <= 100))
+        && (!('customerName' in data) || (data.customerName is string && data.customerName.size() <= 100))
+        && (!('customerEmail' in data) || (data.customerEmail is string && data.customerEmail.size() <= 120))
+        && (!('customerPhone' in data) || (data.customerPhone is string && data.customerPhone.size() <= 40))
+        && (!('deliveryAddress' in data) || data.deliveryAddress is map || (data.deliveryAddress is string && data.deliveryAddress.size() <= 1000))
+        && (!('marketType' in data) || (data.marketType is string && data.marketType.size() <= 20))
+        && (!('isGlobalMode' in data) || data.isGlobalMode is bool)
+        && (!('deliveryScope' in data) || (data.deliveryScope is string && data.deliveryScope.size() <= 20))
+        && (!('status' in data) || (data.status is string && data.status.size() <= 50))
+        && (!('total' in data) || (data.total is number && data.total >= 0))
+        && (!('items' in data) || (data.items is list && data.items.size() <= 200))
+        && (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 100) || data.createdAt is timestamp);
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    // 1. Customer Profiles & Private Subcollections
+    match /customers/{uid} {
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.name is string
+        && (!('email' in request.resource.data) || request.resource.data.email is string);
+
+      allow read, update, delete: if isOwner(uid);
+    }
+
+    match /customers/{uid}/cart/{document=**} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /customers/{uid}/orders/{orderId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /customers/{uid}/saved_addresses/{addressId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // 2. Root Orders Collection
+    match /orders/{orderId} {
+      // Authenticated customers can read their own orders (both single getDoc and where('customerId', '==', user.uid) queries)
+      allow read: if isSignedIn() && resource.data.customerId == request.auth.uid;
+
+      // Authenticated customers can create their own order
+      allow create: if isSignedIn()
+        && request.resource.data.customerId == request.auth.uid
+        && isValidOrder(request.resource.data);
+
+      // Safe update for retries: customer cannot change ownership, creation date, or order total
+      allow update: if isSignedIn()
+        && resource.data.customerId == request.auth.uid
+        && request.resource.data.customerId == request.auth.uid
+        && isValidOrder(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.totalAmount == resource.data.totalAmount;
+
+      allow delete: if false;
+    }
+
+    // 3. Sellers (Users collection) and Seller Order Subcollections
+    match /users/{sellerId} {
+      // Sellers can read their own account; customers can read public seller profiles (role == 'seller')
+      allow read: if isSignedIn() && (isOwner(sellerId) || resource.data.role == 'seller');
+      allow create, update: if isOwner(sellerId);
+      allow delete: if false;
+
+      // Local order notifications for sellers
+      match /local_orders/{orderId} {
+        allow read: if isSignedIn() && (isOwner(sellerId) || resource.data.customerUid == request.auth.uid);
+        allow create: if isSignedIn() && (isOwner(sellerId) || (request.resource.data.customerUid == request.auth.uid && isValidSellerOrder(request.resource.data)));
+        allow update: if isOwner(sellerId)
+          || (isSignedIn()
+              && resource.data.customerUid == request.auth.uid
+              && request.resource.data.customerUid == request.auth.uid
+              && isValidSellerOrder(request.resource.data)
+              && request.resource.data.createdAt == resource.data.createdAt
+              && request.resource.data.total == resource.data.total);
+        allow delete: if isOwner(sellerId);
+      }
+
+      // Global order notifications for sellers
+      match /global_orders/{orderId} {
+        allow read: if isSignedIn() && (isOwner(sellerId) || resource.data.customerUid == request.auth.uid);
+        allow create: if isSignedIn() && (isOwner(sellerId) || (request.resource.data.customerUid == request.auth.uid && isValidSellerOrder(request.resource.data)));
+        allow update: if isOwner(sellerId)
+          || (isSignedIn()
+              && resource.data.customerUid == request.auth.uid
+              && request.resource.data.customerUid == request.auth.uid
+              && isValidSellerOrder(request.resource.data)
+              && request.resource.data.createdAt == resource.data.createdAt
+              && request.resource.data.total == resource.data.total);
+        allow delete: if isOwner(sellerId);
+      }
+
+      // Seller product inventory
+      match /inventory/{itemId} {
+        allow read: if isSignedIn();
+        allow write: if isOwner(sellerId);
+      }
+
+      // Seller global product inventory
+      match /global_inventory/{itemId} {
+        allow read: if isSignedIn();
+        allow write: if isOwner(sellerId);
+      }
+    }
+
+    // 4. Products Catalog (Read-only for signed-in users)
+    match /products/{productId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // 5. Location Reference Master (Read-only for address lookup during registration/selection)
+    match /location_master/{document=**} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // 6. Default Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

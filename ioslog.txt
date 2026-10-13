@@ -1,0 +1,13 @@
+info A dev server is already running for this project on port 8081.
+info Found Xcode workspace "kadaiapp.xcworkspace"
+info Found booted iPhone 17 Pro
+info Building (using "xcodebuild -workspace kadaiapp.xcworkspace -configuration Debug -scheme kadaiapp -destination id=BE3BA598-5791-4B44-B09B-068E36F1967D")
+debug Command line invocation:
+    
+debug /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -workspace kadaiapp.xcworkspace -configuration Debug -scheme kadaiapp -destination id=BE3BA598-5791-4B44-B09B-068E36F1967D
+
+
+
+info 💡 Tip: Make sure that you have set up your development environment correctly, by running npx react-native doctor. To read more about doctor command visit: https://github.com/react-native-community/cli/blob/main/packages/cli-doctor/README.md#doctor 
+
+error Failed to build ios project. "xcodebuild" exited with error code '70'. To debug build logs further, consider building your app with Xcode.app, by opening 'kadaiapp.xcworkspace'.
