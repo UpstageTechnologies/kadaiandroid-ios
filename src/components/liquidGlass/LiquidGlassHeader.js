@@ -23,7 +23,11 @@ import { TEXTURED_DARK, TEXTURED_LIGHT } from './theme';
 import { triggerHaptic } from './safeHaptics';
 import { DeliveryLocationFlowModal } from './AddressManagementModals';
 
-const { height: screenHeight } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const ROW_PADDING = 10;
+const ROW_GAP = 8;
+const FULL_CARD_WIDTH = screenWidth - (ROW_PADDING * 2);
+const COMPACT_PILL_WIDTH = (FULL_CARD_WIDTH - ROW_GAP) / 2;
 
 export const LiquidGlassHeader = ({
   userAddress = {},
@@ -270,6 +274,84 @@ export const LiquidGlassHeader = ({
     liveStepIndex = 0;
   }
 
+  // Dynamic Island Morph Animation for Row 2 Live Tracking Pill
+  const [isTrackingExpanded, setIsTrackingExpanded] = useState(false);
+  const trackingMorphAnim = useRef(new Animated.Value(0)).current;
+
+  const handleToggleTrackingExpand = () => {
+    triggerHaptic('impactLight');
+    if (activePanel !== 'none') {
+      handleClosePanel();
+    }
+    const toValue = isTrackingExpanded ? 0 : 1;
+    setIsTrackingExpanded(!isTrackingExpanded);
+    Animated.spring(trackingMorphAnim, {
+      toValue,
+      tension: 65,
+      friction: 8,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const handleCollapseTracking = () => {
+    triggerHaptic('impactLight');
+    setIsTrackingExpanded(false);
+    Animated.spring(trackingMorphAnim, {
+      toValue: 0,
+      tension: 75,
+      friction: 8,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  // Auto-collapse tracking when order is no longer active
+  useEffect(() => {
+    if (!isOrderActive && isTrackingExpanded) {
+      setIsTrackingExpanded(false);
+      trackingMorphAnim.setValue(0);
+    }
+  }, [isOrderActive]);
+
+  // Interpolations for smooth twin-pill morphing in Row 2
+  const categoriesWidth = isOrderActive
+    ? trackingMorphAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [COMPACT_PILL_WIDTH, 0],
+      })
+    : FULL_CARD_WIDTH;
+
+  const categoriesOpacity = isOrderActive
+    ? trackingMorphAnim.interpolate({
+        inputRange: [0, 0.25],
+        outputRange: [1, 0],
+      })
+    : 1;
+
+  const trackingWidth = trackingMorphAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [COMPACT_PILL_WIDTH, FULL_CARD_WIDTH],
+  });
+
+  const trackingHeight = trackingMorphAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [38, 156],
+  });
+
+  const trackingBorderRadius = trackingMorphAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [19, 22],
+  });
+
+  const compactOpacity = trackingMorphAnim.interpolate({
+    inputRange: [0, 0.25],
+    outputRange: [1, 0],
+  });
+
+  const expandedOpacity = trackingMorphAnim.interpolate({
+    inputRange: [0.4, 1],
+    outputRange: [0, 1],
+  });
+
   // If market mode changes and current notification does not match mode, dismiss immediately
   useEffect(() => {
     if (isGlobal && !isGlobalOrder) {
@@ -441,6 +523,9 @@ export const LiquidGlassHeader = ({
 
   // Toggle dropdown panels (silky smooth fluid animations, zero bounce or stutter on close)
   const togglePanel = panelName => {
+    if (isTrackingExpanded) {
+      handleCollapseTracking();
+    }
     let targetPanel = panelName;
     if (['sort', 'type', 'price'].includes(panelName)) {
       setCategoriesTab(panelName);
@@ -926,105 +1011,263 @@ export const LiquidGlassHeader = ({
 
       {/* 3. ROW 2: CATEGORIES & FILTERS (INTEGRATED) + DYNAMIC LIVE TRACKING PILL */}
       <View style={styles.filterBarContainer}>
-        {/* Categories & Integrated Filters Chip */}
-        <TouchableOpacity
+        {/* Categories & Integrated Filters Pill */}
+        <Animated.View
           style={[
-            styles.categoriesFilterChip,
+            styles.twinPillWrap,
             {
-              backgroundColor: isDarkMode ? '#18241D' : '#FFFFFF',
-              borderColor: (activePanel === 'categories' || activeFilterCount > 0)
-                ? theme.neonGreen
-                : (isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'),
+              width: categoriesWidth,
+              opacity: categoriesOpacity,
             },
-            (activePanel === 'categories' || activeFilterCount > 0) && styles.categoriesFilterChipActive,
           ]}
-          onPress={() => togglePanel('categories')}
-          activeOpacity={0.8}
+          pointerEvents={isTrackingExpanded ? 'none' : 'auto'}
         >
-          <Ionicons
-            name="grid-outline"
-            size={13}
-            color={(activePanel === 'categories' || activeFilterCount > 0) ? theme.neonGreen : (isDarkMode ? '#FFFFFF' : '#0F172A')}
-            style={{ marginRight: 5 }}
-          />
-          <Text
-            style={[
-              styles.categoriesFilterText,
-              { color: (activePanel === 'categories' || activeFilterCount > 0) ? theme.neonGreen : (isDarkMode ? '#FFFFFF' : '#0F172A') },
-            ]}
-            numberOfLines={1}
-          >
-            {selectedCategory
-              ? (isTamil && selectedCategory.nameTa ? selectedCategory.nameTa : (selectedCategory.shortName || selectedCategory.name))
-              : (isTamil ? 'பிரிவுகள் & வடிகட்டி' : 'Categories & Filters')}
-          </Text>
-
-          {/* Active filter count badge if any filter (category, sort, type, price) is applied */}
-          {activeFilterCount > 0 && (
-            <View style={[styles.filterBadgeCircle, { backgroundColor: theme.neonGreen }]}>
-              <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
-            </View>
-          )}
-
-          <Ionicons
-            name={activePanel === 'categories' ? 'chevron-up' : 'chevron-down'}
-            size={11}
-            color={activePanel === 'categories' ? theme.neonGreen : (isDarkMode ? '#9CA3AF' : '#64748B')}
-            style={{ marginLeft: 3 }}
-          />
-        </TouchableOpacity>
-
-        {/* Live Order Tracking Dynamic Pill (shown when an order is active) */}
-        {isOrderActive ? (
           <TouchableOpacity
             style={[
-              styles.headerLiveTrackingPill,
+              styles.matchingGlassPill,
               {
-                backgroundColor: isDarkMode ? '#050D07' : '#FFFFFF',
-                borderColor: activePanel === 'live_tracking' ? theme.neonGreen : 'rgba(34, 197, 94, 0.5)',
+                backgroundColor: (activePanel === 'categories' || activeFilterCount > 0)
+                  ? (isDarkMode ? 'rgba(34, 197, 94, 0.15)' : '#DCFCE7')
+                  : (isDarkMode ? '#132018' : '#FFFFFF'),
+                borderColor: (activePanel === 'categories' || activeFilterCount > 0)
+                  ? theme.neonGreen
+                  : (isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'),
               },
             ]}
-            onPress={() => togglePanel('live_tracking')}
-            activeOpacity={0.85}
+            onPress={() => {
+              if (isTrackingExpanded) {
+                handleCollapseTracking();
+              }
+              togglePanel('categories');
+            }}
+            activeOpacity={0.8}
           >
-            {/* Pulsing Radar Ring & Vehicle Icon */}
-            <View style={styles.liveTrackingIconWrap}>
-              <Animated.View
-                style={[
-                  styles.radarPulseRing,
-                  {
-                    transform: [{ scale: liveRadarScale }],
-                    opacity: liveRadarOpacity,
-                    borderColor: theme.neonGreen,
-                  },
-                ]}
+            <View style={styles.pillLeftContent}>
+              <Ionicons
+                name="grid-outline"
+                size={13}
+                color={(activePanel === 'categories' || activeFilterCount > 0) ? theme.neonGreen : (isDarkMode ? '#FFFFFF' : '#0F172A')}
+                style={{ marginRight: 5 }}
               />
-              <View style={[styles.liveBeaconCore, { backgroundColor: theme.neonGreen }]}>
-                <Ionicons
-                  name={isGlobalOrder ? 'cube' : 'bicycle'}
-                  size={10}
-                  color="#050906"
-                />
-              </View>
-            </View>
+              <Text
+                style={[
+                  styles.matchingPillText,
+                  { color: (activePanel === 'categories' || activeFilterCount > 0) ? theme.neonGreen : (isDarkMode ? '#FFFFFF' : '#0F172A') },
+                ]}
+                numberOfLines={1}
+              >
+                {selectedCategory
+                  ? (isTamil && selectedCategory.nameTa ? selectedCategory.nameTa : (selectedCategory.shortName || selectedCategory.name))
+                  : (isTamil ? 'பிரிவுகள் & வடிகட்டி' : 'Categories & Filters')}
+              </Text>
 
-            {/* Status / Countdown Banner */}
-            <View style={styles.liveTrackingTextWrap}>
-              <Text style={[styles.liveTrackingHeadline, { color: theme.neonGreen }]} numberOfLines={1}>
-                {liveEtaCountdownText}
-              </Text>
-              <Text style={[styles.liveTrackingSubline, { color: isDarkMode ? 'rgba(255,255,255,0.7)' : '#64748B' }]} numberOfLines={1}>
-                {liveStatusBadgeText}
-              </Text>
+              {/* Active filter count badge */}
+              {activeFilterCount > 0 && (
+                <View style={[styles.filterBadgeCircle, { backgroundColor: theme.neonGreen }]}>
+                  <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+                </View>
+              )}
             </View>
 
             <Ionicons
-              name={activePanel === 'live_tracking' ? 'chevron-up' : 'chevron-down'}
-              size={12}
-              color={theme.neonGreen}
-              style={{ marginLeft: 2 }}
+              name={activePanel === 'categories' ? 'chevron-up' : 'chevron-down'}
+              size={11}
+              color={activePanel === 'categories' ? theme.neonGreen : (isDarkMode ? '#9CA3AF' : '#64748B')}
+              style={{ marginLeft: 3 }}
             />
           </TouchableOpacity>
+        </Animated.View>
+
+        {/* Live Order Tracking Dynamic Pill (shown when an order is active) */}
+        {isOrderActive ? (
+          <Animated.View
+            style={[
+              styles.twinPillWrap,
+              {
+                width: trackingWidth,
+                height: trackingHeight,
+                borderRadius: trackingBorderRadius,
+                backgroundColor: isDarkMode ? '#0A140E' : '#FFFFFF',
+                borderColor: isTrackingExpanded
+                  ? theme.neonGreen
+                  : (isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'),
+              },
+              styles.trackingMorphCard,
+            ]}
+          >
+            {/* COMPACT VIEW (Matching Twin Pill) */}
+            <Animated.View
+              style={[
+                styles.trackingCompactRow,
+                { opacity: compactOpacity },
+              ]}
+              pointerEvents={isTrackingExpanded ? 'none' : 'auto'}
+            >
+              <TouchableOpacity
+                style={styles.trackingCompactTouchable}
+                onPress={handleToggleTrackingExpand}
+                activeOpacity={0.82}
+              >
+                <View style={styles.pillLeftContent}>
+                  {/* Pulsing Radar Ring & Vehicle Icon */}
+                  <View style={styles.liveTrackingIconWrap}>
+                    <Animated.View
+                      style={[
+                        styles.radarPulseRing,
+                        {
+                          transform: [{ scale: liveRadarScale }],
+                          opacity: liveRadarOpacity,
+                          borderColor: theme.neonGreen,
+                        },
+                      ]}
+                    />
+                    <View style={[styles.liveBeaconCore, { backgroundColor: theme.neonGreen }]}>
+                      <Ionicons
+                        name={isGlobalOrder ? 'cube' : 'bicycle'}
+                        size={10}
+                        color="#050906"
+                      />
+                    </View>
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.matchingPillText,
+                      { color: theme.neonGreen, fontWeight: '800', marginLeft: 5 },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {liveEtaCountdownText} • {liveStatusBadgeText}
+                  </Text>
+                </View>
+
+                <Ionicons
+                  name="chevron-down"
+                  size={11}
+                  color={theme.neonGreen}
+                  style={{ marginLeft: 3 }}
+                />
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* EXPANDED VIEW (Dynamic Island Card) */}
+            <Animated.View
+              style={[
+                styles.trackingExpandedCard,
+                { opacity: expandedOpacity },
+              ]}
+              pointerEvents={isTrackingExpanded ? 'auto' : 'none'}
+            >
+              {/* Top Row: Badge & Collapse Button */}
+              <View style={styles.expandedHeaderRow}>
+                <View style={styles.expandedBadgeWrap}>
+                  <View style={[styles.pulsingCoreDot, { backgroundColor: theme.neonGreen }]} />
+                  <Text style={[styles.expandedBadgeText, { color: theme.neonGreen }]}>
+                    {isTamil ? 'நேரலை கண்காணிப்பு' : 'LIVE ORDER TRACKING'} • #{lastOrder?.orderId || lastOrder?.id || ''}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.collapseBtn}
+                  onPress={handleCollapseTracking}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="chevron-up" size={17} color={theme.neonGreen} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Middle Row: Large ETA & Store Info + Track Live CTA */}
+              <View style={styles.expandedHeroRow}>
+                <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                  <Text style={[styles.expandedEtaHeadline, { color: isDarkMode ? '#FFFFFF' : '#0F172A' }]} numberOfLines={1}>
+                    {liveEtaCountdownText} • {liveStatusBadgeText}
+                  </Text>
+                  <Text style={[styles.expandedStoreSub, { color: isDarkMode ? '#94A3B8' : '#64748B' }]} numberOfLines={1}>
+                    {lastOrderShopName} • {lastOrderItemCount} {isTamil ? 'பொருட்கள்' : 'items'}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.expandedTrackBtn, { backgroundColor: theme.neonGreen }]}
+                  onPress={() => {
+                    handleCollapseTracking();
+                    if (onTrackOrder) {
+                      onTrackOrder(lastOrder);
+                    } else if (navigation) {
+                      navigation.navigate('TrackOrderScreen', { orderId: lastOrder?.orderId || lastOrder?.id });
+                    }
+                  }}
+                  activeOpacity={0.82}
+                >
+                  <Text style={styles.expandedTrackBtnText}>
+                    {isTamil ? 'வரைபடம்' : 'Track Live'}
+                  </Text>
+                  <Ionicons name="navigate" size={12} color="#050906" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Bottom Row: 4-Step Progress Stepper */}
+              <View style={styles.expandedStepperRow}>
+                {[
+                  { key: 'placed', label: isTamil ? 'பதிவு' : 'Placed', icon: 'checkmark-circle' },
+                  { key: 'packed', label: isTamil ? 'தயார்' : 'Packed', icon: 'cube' },
+                  { key: 'transit', label: isTamil ? 'வழியில்' : 'On the Way', icon: 'bicycle' },
+                  { key: 'delivered', label: isTamil ? 'டெலிவரி' : 'Delivered', icon: 'home' },
+                ].map((st, idx) => {
+                  const isDone = liveStepIndex >= idx;
+                  const isCurrent = liveStepIndex === idx;
+                  return (
+                    <React.Fragment key={st.key}>
+                      <View style={{ alignItems: 'center' }}>
+                        <View
+                          style={[
+                            styles.stepperDot,
+                            {
+                              backgroundColor: isDone ? theme.neonGreen : (isDarkMode ? '#1E2D22' : '#E2E8F0'),
+                              borderColor: isCurrent ? '#FFFFFF' : 'transparent',
+                              borderWidth: isCurrent ? 2 : 0,
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name={st.icon}
+                            size={10}
+                            color={isDone ? '#050906' : (isDarkMode ? '#64748B' : '#94A3B8')}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.stepLabel,
+                            {
+                              color: isCurrent
+                                ? theme.neonGreen
+                                : isDone
+                                ? (isDarkMode ? '#FFFFFF' : '#0F172A')
+                                : (isDarkMode ? '#64748B' : '#94A3B8'),
+                              fontWeight: isCurrent ? '800' : '600',
+                            },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {st.label}
+                        </Text>
+                      </View>
+                      {idx < 3 && (
+                        <View
+                          style={[
+                            styles.stepLine,
+                            {
+                              backgroundColor: liveStepIndex > idx ? theme.neonGreen : (isDarkMode ? '#1E2D22' : '#E2E8F0'),
+                            },
+                          ]}
+                        />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </View>
+            </Animated.View>
+          </Animated.View>
         ) : null}
       </View>
 
@@ -1825,120 +2068,6 @@ export const LiquidGlassHeader = ({
               )}
             </View>
           )}
-
-          {/* PANEL 4: LIVE ORDER TRACKING (DYNAMIC ISLAND DROPDOWN) */}
-          {activePanel === 'live_tracking' && lastOrder && (
-            <View style={styles.panelContent}>
-              <View style={styles.panelHeaderRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <View style={[styles.livePulseDot, { backgroundColor: theme.neonGreen }]} />
-                  <Text style={[styles.panelHeading, { color: theme.textWhite }]}>
-                    {isTamil ? 'நேரடி கண்காணிப்பு' : 'Live Order Tracking'}
-                  </Text>
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: theme.neonGreen }}>
-                    #{lastOrder.orderId || lastOrder.id}
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={handleClosePanel} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Ionicons name="close" size={20} color={theme.textWhite} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Shop & Items Row */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '800', color: theme.textWhite }} numberOfLines={1}>
-                    {lastOrderShopName}
-                  </Text>
-                  <Text style={{ fontSize: 11, color: isDarkMode ? '#94A3B8' : '#64748B', marginTop: 1 }}>
-                    {lastOrderItemCount} {isTamil ? 'பொருட்கள்' : 'items'} • ₹{lastOrder.totalAmount || lastOrder.finalPayable || lastOrder.total || 0}
-                  </Text>
-                </View>
-                <View style={[styles.liveStatusBadgeWrap, { backgroundColor: 'rgba(34, 197, 94, 0.15)', borderColor: theme.neonGreen }]}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: theme.neonGreen }}>
-                    {liveEtaCountdownText}
-                  </Text>
-                </View>
-              </View>
-
-              {/* 4-Step Stepper Progress */}
-              <View style={styles.liveStepperContainer}>
-                {[
-                  { key: 'placed', label: isTamil ? 'பதிவு' : 'Placed', icon: 'checkmark-circle' },
-                  { key: 'packed', label: isTamil ? 'தயார்' : 'Packed', icon: 'cube' },
-                  { key: 'transit', label: isTamil ? 'வழியில்' : 'On the Way', icon: 'bicycle' },
-                  { key: 'delivered', label: isTamil ? 'டெலிவரி' : 'Delivered', icon: 'home' },
-                ].map((st, idx) => {
-                  const isDone = liveStepIndex >= idx;
-                  const isCurrent = liveStepIndex === idx;
-                  return (
-                    <React.Fragment key={st.key}>
-                      <View style={{ alignItems: 'center', flex: 1 }}>
-                        <View
-                          style={[
-                            styles.stepperDot,
-                            {
-                              backgroundColor: isDone ? theme.neonGreen : (isDarkMode ? '#1E2D22' : '#E2E8F0'),
-                              borderColor: isCurrent ? '#FFFFFF' : 'transparent',
-                              borderWidth: isCurrent ? 2 : 0,
-                            },
-                          ]}
-                        >
-                          <Ionicons
-                            name={st.icon}
-                            size={10}
-                            color={isDone ? '#050906' : (isDarkMode ? '#64748B' : '#94A3B8')}
-                          />
-                        </View>
-                        <Text
-                          style={{
-                            fontSize: 9.5,
-                            fontWeight: isCurrent ? '800' : '600',
-                            color: isDone ? (isCurrent ? theme.neonGreen : theme.textWhite) : (isDarkMode ? '#64748B' : '#94A3B8'),
-                            marginTop: 4,
-                            textAlign: 'center',
-                          }}
-                          numberOfLines={1}
-                        >
-                          {st.label}
-                        </Text>
-                      </View>
-                      {idx < 3 && (
-                        <View
-                          style={[
-                            styles.stepperLine,
-                            {
-                              backgroundColor: liveStepIndex > idx ? theme.neonGreen : (isDarkMode ? '#1E2D22' : '#CBD5E1'),
-                            },
-                          ]}
-                        />
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </View>
-
-              {/* Bottom Track Live Button */}
-              <TouchableOpacity
-                style={[styles.trackLiveActionBtn, { backgroundColor: theme.neonGreen }]}
-                onPress={() => {
-                  handleClosePanel();
-                  if (onTrackOrder) {
-                    onTrackOrder(lastOrder);
-                  } else if (navigation) {
-                    navigation.navigate('TrackOrderScreen', { orderId: lastOrder.orderId || lastOrder.id });
-                  }
-                }}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="navigate" size={14} color="#050906" style={{ marginRight: 6 }} />
-                <Text style={styles.trackLiveActionBtnText}>
-                  {isTamil ? 'வரைபடத்தில் கண்காணிக்கவும்' : 'Track Live on Map'}
-                </Text>
-                <Ionicons name="arrow-forward" size={14} color="#050906" style={{ marginLeft: 4 }} />
-              </TouchableOpacity>
-            </View>
-          )}
         </Animated.View>
       )}
 
@@ -2445,31 +2574,42 @@ const styles = StyleSheet.create({
   },
   filterBarContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingTop: 4,
+    paddingTop: 5,
     paddingBottom: 2,
     gap: 8,
+    minHeight: 38,
+    overflow: 'visible',
   },
-  categoriesFilterChip: {
+  twinPillWrap: {
+    overflow: 'hidden',
+  },
+  matchingGlassPill: {
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1.2,
+    paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#18241D',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 16,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-    flexShrink: 0,
+    justifyContent: 'space-between',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2.5,
+    elevation: 2,
   },
-  categoriesFilterChipActive: {
-    borderColor: '#10B981',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+  pillLeftContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
   },
-  categoriesFilterText: {
-    fontSize: 12,
+  matchingPillText: {
+    fontSize: 11.5,
     fontWeight: '700',
-    maxWidth: 130,
+    letterSpacing: -0.2,
+    flexShrink: 1,
   },
   filterBadgeCircle: {
     width: 16,
@@ -2477,7 +2617,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 4,
+    marginLeft: 5,
     marginRight: 2,
   },
   filterBadgeText: {
@@ -2485,21 +2625,110 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#050906',
   },
-  headerLiveTrackingPill: {
+  trackingMorphCard: {
+    borderWidth: 1.2,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  trackingCompactRow: {
+    ...StyleSheet.absoluteFill,
+    height: 38,
+    justifyContent: 'center',
+  },
+  trackingCompactTouchable: {
     flex: 1,
+    height: 38,
+    paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#050D07',
-    borderWidth: 1.2,
-    borderRadius: 16,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    justifyContent: 'space-between',
+  },
+  trackingExpandedCard: {
+    ...StyleSheet.absoluteFill,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    justifyContent: 'space-between',
+  },
+  expandedHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  expandedBadgeWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 2,
+  },
+  pulsingCoreDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  expandedBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  collapseBtn: {
+    padding: 2,
+  },
+  expandedHeroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  expandedEtaHeadline: {
+    fontSize: 13.5,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+  },
+  expandedStoreSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  expandedTrackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  expandedTrackBtnText: {
+    color: '#050906',
+    fontSize: 11.5,
+    fontWeight: '800',
+  },
+  expandedStepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  stepDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepLabel: {
+    fontSize: 9.5,
+    marginTop: 2,
+  },
+  stepLine: {
+    flex: 1,
+    height: 2,
+    marginBottom: 10,
+    marginHorizontal: -2,
   },
   liveTrackingIconWrap: {
     width: 18,
@@ -2520,20 +2749,6 @@ const styles = StyleSheet.create({
     borderRadius: 7.5,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  liveTrackingTextWrap: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  liveTrackingHeadline: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  liveTrackingSubline: {
-    fontSize: 9,
-    fontWeight: '600',
-    marginTop: -1,
   },
   filterSubTabsRow: {
     flexDirection: 'row',
