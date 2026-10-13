@@ -283,25 +283,33 @@ export const LiquidGlassHeader = ({
     if (activePanel !== 'none') {
       handleClosePanel();
     }
-    const toValue = isTrackingExpanded ? 0 : 1;
-    setIsTrackingExpanded(!isTrackingExpanded);
+    if (isTrackingExpanded) {
+      handleCollapseTracking();
+      return;
+    }
+    setIsTrackingExpanded(true);
     Animated.spring(trackingMorphAnim, {
-      toValue,
-      tension: 65,
-      friction: 8,
+      toValue: 1,
+      damping: 22,
+      mass: 0.8,
+      stiffness: 180,
+      overshootClamping: true,
       useNativeDriver: false,
     }).start();
   };
 
   const handleCollapseTracking = () => {
     triggerHaptic('impactLight');
-    setIsTrackingExpanded(false);
     Animated.spring(trackingMorphAnim, {
       toValue: 0,
-      tension: 75,
-      friction: 8,
+      damping: 22,
+      mass: 0.8,
+      stiffness: 200,
+      overshootClamping: true,
       useNativeDriver: false,
-    }).start();
+    }).start(() => {
+      setIsTrackingExpanded(false);
+    });
   };
 
   // Auto-collapse tracking when order is no longer active
@@ -312,44 +320,61 @@ export const LiquidGlassHeader = ({
     }
   }, [isOrderActive]);
 
-  // Interpolations for smooth twin-pill morphing in Row 2
-  const categoriesWidth = isOrderActive
-    ? trackingMorphAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [COMPACT_PILL_WIDTH, 0],
-      })
-    : FULL_CARD_WIDTH;
-
+  // Interpolations for smooth morphing in Row 2 (Zero layout jumping, clamped bounds)
   const categoriesOpacity = isOrderActive
     ? trackingMorphAnim.interpolate({
-        inputRange: [0, 0.25],
+        inputRange: [0, 0.35],
         outputRange: [1, 0],
+        extrapolate: 'clamp',
       })
     : 1;
 
   const trackingWidth = trackingMorphAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [COMPACT_PILL_WIDTH, FULL_CARD_WIDTH],
+    extrapolate: 'clamp',
   });
 
   const trackingHeight = trackingMorphAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [38, 156],
+    extrapolate: 'clamp',
   });
 
   const trackingBorderRadius = trackingMorphAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [19, 22],
+    extrapolate: 'clamp',
   });
 
   const compactOpacity = trackingMorphAnim.interpolate({
     inputRange: [0, 0.25],
     outputRange: [1, 0],
+    extrapolate: 'clamp',
   });
 
   const expandedOpacity = trackingMorphAnim.interpolate({
-    inputRange: [0.4, 1],
+    inputRange: [0.35, 1],
     outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  const trackingBorderColor = trackingMorphAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [
+      isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+      theme.neonGreen,
+    ],
+    extrapolate: 'clamp',
+  });
+
+  const trackingBgColor = trackingMorphAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [
+      isDarkMode ? '#132018' : '#FFFFFF',
+      isDarkMode ? '#08120B' : '#FFFFFF',
+    ],
+    extrapolate: 'clamp',
   });
 
   // If market mode changes and current notification does not match mode, dismiss immediately
@@ -1011,12 +1036,21 @@ export const LiquidGlassHeader = ({
 
       {/* 3. ROW 2: CATEGORIES & FILTERS (INTEGRATED) + DYNAMIC LIVE TRACKING PILL */}
       <View style={styles.filterBarContainer}>
+        {/* Transparent Backdrop to collapse tracking when tapping anywhere outside */}
+        {isTrackingExpanded && (
+          <TouchableOpacity
+            style={styles.trackingBackdrop}
+            activeOpacity={1}
+            onPress={handleCollapseTracking}
+          />
+        )}
+
         {/* Categories & Integrated Filters Pill */}
         <Animated.View
           style={[
             styles.twinPillWrap,
             {
-              width: categoriesWidth,
+              width: isOrderActive ? COMPACT_PILL_WIDTH : FULL_CARD_WIDTH,
               opacity: categoriesOpacity,
             },
           ]}
@@ -1082,17 +1116,14 @@ export const LiquidGlassHeader = ({
         {isOrderActive ? (
           <Animated.View
             style={[
-              styles.twinPillWrap,
+              styles.trackingMorphCard,
               {
                 width: trackingWidth,
                 height: trackingHeight,
                 borderRadius: trackingBorderRadius,
-                backgroundColor: isDarkMode ? '#0A140E' : '#FFFFFF',
-                borderColor: isTrackingExpanded
-                  ? theme.neonGreen
-                  : (isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'),
+                backgroundColor: trackingBgColor,
+                borderColor: trackingBorderColor,
               },
-              styles.trackingMorphCard,
             ]}
           >
             {/* COMPACT VIEW (Matching Twin Pill) */}
@@ -2573,14 +2604,19 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   filterBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingTop: 5,
-    paddingBottom: 2,
-    gap: 8,
-    minHeight: 38,
-    overflow: 'visible',
+    position: 'relative',
+    height: 38,
+    marginTop: 5,
+    paddingHorizontal: 14,
+    zIndex: 50,
+  },
+  trackingBackdrop: {
+    position: 'absolute',
+    top: -100,
+    left: -20,
+    right: -20,
+    bottom: -800,
+    zIndex: 80,
   },
   twinPillWrap: {
     overflow: 'hidden',
@@ -2626,16 +2662,23 @@ const styles = StyleSheet.create({
     color: '#050906',
   },
   trackingMorphCard: {
+    position: 'absolute',
+    right: 14,
+    top: 0,
+    zIndex: 100,
     borderWidth: 1.2,
     shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 12,
     overflow: 'hidden',
   },
   trackingCompactRow: {
-    ...StyleSheet.absoluteFill,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
     height: 38,
     justifyContent: 'center',
   },
@@ -2648,7 +2691,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   trackingExpandedCard: {
-    ...StyleSheet.absoluteFill,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: FULL_CARD_WIDTH,
+    height: 156,
     paddingHorizontal: 12,
     paddingVertical: 10,
     justifyContent: 'space-between',
