@@ -127,39 +127,107 @@ export const LiquidGlassHeader = ({
       ? lastOrder.items.reduce((s, it) => s + (Number(it?.qty) || 1), 0)
       : 1);
 
+  // Centralized, robust status resolution helper
+  const resolveOrderStatusInfo = (status, isGlobal = false) => {
+    const s = String(status || '').toLowerCase().trim();
+
+    // 1. In-Transit / Out for Delivery (MUST check before 'deliver' as 'out for delivery' contains 'deliver')
+    if (
+      s.includes('out') ||
+      s.includes('way') ||
+      s.includes('transit') ||
+      s.includes('dispatched') ||
+      s.includes('delivering') ||
+      s.includes('on_the_way') ||
+      s.includes('rider') ||
+      s.includes('driver') ||
+      s.includes('picked')
+    ) {
+      return {
+        key: 'transit',
+        stepIndex: 2,
+        badgeText: isTamil ? 'வழியில்' : 'On the way',
+        etaText: isGlobal
+          ? (isTamil ? '📦 கூரியர்' : '📦 In Transit')
+          : (isTamil ? '⚡ ~14 நிமி' : '⚡ ~14 mins'),
+        dotColor: theme.neonGreen,
+      };
+    }
+
+    // 2. Packing / Preparing / Accepted / Confirmed
+    if (
+      s.includes('pack') ||
+      s.includes('ready') ||
+      s.includes('accept') ||
+      s.includes('confirm') ||
+      s.includes('cook') ||
+      s.includes('prepar')
+    ) {
+      return {
+        key: 'packed',
+        stepIndex: 1,
+        badgeText: isTamil ? 'தயாராகிறது' : 'Packing',
+        etaText: isTamil ? '📦 பேக்கிங்' : '📦 15 mins',
+        dotColor: '#38BDF8',
+      };
+    }
+
+    // 3. Strictly Delivered (order has completed and reached the customer)
+    if (s === 'delivered' || s === 'completed' || s.endsWith('delivered')) {
+      return {
+        key: 'delivered',
+        stepIndex: 3,
+        badgeText: isTamil ? 'முடிந்தது' : 'Delivered',
+        etaText: isTamil ? '✨ வந்து சேர்ந்தது' : '✨ Arrived',
+        dotColor: theme.neonGreen,
+      };
+    }
+
+    // 4. Default: Order Placed / Received
+    return {
+      key: 'placed',
+      stepIndex: 0,
+      badgeText: isTamil ? 'பதிவானது' : 'Placed',
+      etaText: isTamil ? '🎉 ஆர்டர்' : '🎉 Preparing',
+      dotColor: '#F59E0B',
+    };
+  };
+
   const getDeliveryCountdown = order => {
     if (!order) return { text: '', mins: 0 };
-    const s = (order.status || '').toLowerCase();
-    if (s.includes('deliver')) {
+    const s = (order.status || '').toLowerCase().trim();
+    if (s.includes('out') || s.includes('way') || s.includes('transit') || s.includes('dispatched') || s.includes('delivering')) {
+      const createdTime = order.createdAt ? new Date(order.createdAt).getTime() : Date.now();
+      const elapsedMins = Math.max(0, Math.floor((Date.now() - createdTime) / 60000));
+      const remaining = Math.max(2, Math.min(14, 15 - elapsedMins));
+      return {
+        mins: remaining,
+        text: isTamil ? `⚡ ~${remaining} நிமிடம் மீதமுள்ளது` : `⚡ ~${remaining} mins left for delivery`,
+      };
+    }
+    if (s.includes('pack') || s.includes('ready')) {
+      return { mins: 12, text: isTamil ? '📦 பொருட்கள் பேக்கிங்' : '📦 12 mins • Packing' };
+    }
+    if (s.includes('accept')) {
+      return { mins: 16, text: isTamil ? '👍 ஆர்டர் ஏற்கப்பட்டது' : '👍 16 mins • Accepted' };
+    }
+    if (s === 'delivered' || s === 'completed' || s.endsWith('delivered')) {
       return { text: isTamil ? '✨ டெலிவரி செய்யப்பட்டது' : '✨ Delivered', mins: 0 };
     }
     if (s.includes('reject') || s.includes('cancel')) {
       return { text: isTamil ? '❌ ஆர்டர் ரத்து' : '❌ Cancelled', mins: 0 };
     }
-    const createdTime = order.createdAt ? new Date(order.createdAt).getTime() : Date.now();
-    const elapsedMins = Math.max(0, Math.floor((Date.now() - createdTime) / 60000));
-    const baseTarget = (order.deliveryScope === 'global' || order.marketType === 'global') ? 45 : 20;
-    let remaining = Math.max(2, baseTarget - elapsedMins);
-    if (s.includes('out') || s.includes('way') || s.includes('transit')) {
-      remaining = Math.min(remaining, 6);
-    } else if (s.includes('pack') || s.includes('ready')) {
-      remaining = Math.min(remaining, 12);
-    } else if (s.includes('accept')) {
-      remaining = Math.min(remaining, 16);
-    }
     return {
-      mins: remaining,
-      text: isTamil
-        ? `⚡ ~${remaining} நிமிடம் மீதமுள்ளது`
-        : `⚡ ~${remaining} mins left for delivery`,
+      mins: 20,
+      text: isTamil ? '🎉 ஆர்டர் பதிவு' : '🎉 Preparing order',
     };
   };
 
   const getMiniStepIndex = status => {
-    const s = (status || '').toLowerCase();
-    if (s.includes('deliver')) return 3;
-    if (s.includes('out') || s.includes('way') || s.includes('transit')) return 2;
+    const s = (status || '').toLowerCase().trim();
+    if (s.includes('out') || s.includes('way') || s.includes('transit') || s.includes('dispatched') || s.includes('delivering')) return 2;
     if (s.includes('pack') || s.includes('ready') || s.includes('accept')) return 1;
+    if (s === 'delivered' || s === 'completed' || s.endsWith('delivered')) return 3;
     return 0; // Placed
   };
 
@@ -189,20 +257,26 @@ export const LiquidGlassHeader = ({
   // Derive list of all active orders matching current shopping mode
   const activeOrdersList = useMemo(() => {
     if (Array.isArray(passedActiveOrders) && passedActiveOrders.length > 0) {
-      return passedActiveOrders;
+      return passedActiveOrders.filter(o => {
+        const st = (o.status || '').toLowerCase().trim();
+        return !['delivered', 'completed', 'cancelled', 'rejected', 'failed'].includes(st);
+      });
     }
     if (Array.isArray(orders) && orders.length > 0) {
       return orders.filter(o => {
-        const st = (o.status || '').toLowerCase();
-        const isActive = !['delivered', 'cancelled', 'rejected'].includes(st);
+        const st = (o.status || '').toLowerCase().trim();
+        const isActive = !['delivered', 'completed', 'cancelled', 'rejected', 'failed'].includes(st);
         const matchesMode = isGlobal ? isOrderFromGlobalMode(o) : !isOrderFromGlobalMode(o);
         return isActive && matchesMode;
       });
     }
-    if (lastOrder && !['delivered', 'cancelled', 'rejected'].includes((lastOrder.status || '').toLowerCase())) {
-      const isGlob = isOrderFromGlobalMode(lastOrder);
-      if (isGlobal ? isGlob : !isGlob) {
-        return [lastOrder];
+    if (lastOrder) {
+      const st = (lastOrder.status || '').toLowerCase().trim();
+      if (!['delivered', 'completed', 'cancelled', 'rejected', 'failed'].includes(st)) {
+        const isGlob = isOrderFromGlobalMode(lastOrder);
+        if (isGlobal ? isGlob : !isGlob) {
+          return [lastOrder];
+        }
       }
     }
     return [];
@@ -271,54 +345,113 @@ export const LiquidGlassHeader = ({
   const urgentOrder = useMemo(() => {
     if (activeOrdersList.length === 0) return primaryOrder;
     const inTransit = activeOrdersList.find(o => {
-      const s = (o.status || '').toLowerCase();
-      return s.includes('out') || s.includes('way') || s.includes('transit');
+      const s = (o.status || '').toLowerCase().trim();
+      return (
+        s.includes('out') ||
+        s.includes('way') ||
+        s.includes('transit') ||
+        s.includes('dispatched') ||
+        s.includes('delivering')
+      );
     });
     if (inTransit) return inTransit;
     const packing = activeOrdersList.find(o => {
-      const s = (o.status || '').toLowerCase();
-      return s.includes('pack') || s.includes('ready');
+      const s = (o.status || '').toLowerCase().trim();
+      return s.includes('pack') || s.includes('ready') || s.includes('accept');
     });
     if (packing) return packing;
     return activeOrdersList[0];
   }, [activeOrdersList, primaryOrder]);
 
-  // Live Tracking Text Calculations for Pill & Dropdown
-  const liveOrderStatus = (urgentOrder?.status || primaryOrder?.status || '').toLowerCase();
-  let liveStatusBadgeText = '';
-  let liveEtaCountdownText = '';
-  let liveStepIndex = 0;
-
-  if (liveOrderStatus.includes('deliver')) {
-    liveStatusBadgeText = isTamil ? 'முடிந்தது' : 'Delivered';
-    liveEtaCountdownText = isTamil ? '✨ வந்து சேர்ந்தது' : '✨ Arrived';
-    liveStepIndex = 3;
-  } else if (liveOrderStatus.includes('out') || liveOrderStatus.includes('way') || liveOrderStatus.includes('transit')) {
-    liveStatusBadgeText = isTamil ? 'வழியில்' : 'On the way';
-    liveEtaCountdownText = isGlobalOrder
-      ? (isTamil ? '📦 கூரியர்' : '📦 In Transit')
-      : (isTamil ? '⚡ ~14 நிமி' : '⚡ ~14 mins');
-    liveStepIndex = 2;
-  } else if (liveOrderStatus.includes('pack') || liveOrderStatus.includes('ready')) {
-    liveStatusBadgeText = isTamil ? 'தயாராகிறது' : 'Packing';
-    liveEtaCountdownText = isTamil ? '📦 பேக்கிங்' : '📦 15 mins';
-    liveStepIndex = 1;
-  } else {
-    liveStatusBadgeText = isTamil ? 'பதிவானது' : 'Placed';
-    liveEtaCountdownText = isTamil ? '🎉 ஆர்டர்' : '🎉 Preparing';
-    liveStepIndex = 0;
-  }
-
-  // Label displayed inside compact pill
-  const compactDisplayLabel = isMultiOrder
-    ? (isTamil
-        ? `${activeOrdersCount} ஆர்டர்கள் • ${liveStatusBadgeText}`
-        : `${activeOrdersCount} Orders • ${liveStatusBadgeText}`)
-    : `${liveEtaCountdownText} • ${liveStatusBadgeText}`;
+  // Smooth UI dynamic ticker transition state & animation for compact pill
+  const [cycleIndex, setCycleIndex] = useState(0);
+  const pillContentFadeAnim = useRef(new Animated.Value(1)).current;
+  const pillContentTranslateY = useRef(new Animated.Value(0)).current;
 
   // Dynamic Island Morph Animation for Row 2 Live Tracking Pill
   const [isTrackingExpanded, setIsTrackingExpanded] = useState(false);
   const trackingMorphAnim = useRef(new Animated.Value(0)).current;
+
+  // Cycle through active orders smoothly every 3.8 seconds when multiple orders exist
+  useEffect(() => {
+    if (!isMultiOrder || isTrackingExpanded) {
+      setCycleIndex(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      // Step 1: Smoothly slide up & fade out
+      Animated.parallel([
+        Animated.timing(pillContentFadeAnim, {
+          toValue: 0,
+          duration: 200,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pillContentTranslateY, {
+          toValue: -6,
+          duration: 200,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setCycleIndex(prev => (prev + 1) % activeOrdersList.length);
+        pillContentTranslateY.setValue(6);
+
+        // Step 2: Smoothly slide in from bottom & fade in
+        Animated.parallel([
+          Animated.timing(pillContentFadeAnim, {
+            toValue: 1,
+            duration: 240,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pillContentTranslateY, {
+            toValue: 0,
+            duration: 240,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
+    }, 3800);
+
+    return () => clearInterval(interval);
+  }, [isMultiOrder, activeOrdersList.length, isTrackingExpanded]);
+
+  // Active displayed order on the compact pill (cycled or urgent)
+  const currentActiveOrder = isMultiOrder
+    ? (activeOrdersList[cycleIndex % activeOrdersList.length] || urgentOrder || primaryOrder)
+    : (urgentOrder || primaryOrder);
+
+  const isCurrentGlobal = isOrderFromGlobalMode(currentActiveOrder);
+  const currentOrderInfo = resolveOrderStatusInfo(currentActiveOrder?.status, isCurrentGlobal);
+  const currentShopName = currentActiveOrder?.shopName || currentActiveOrder?.sellerName || currentActiveOrder?.storeName || currentActiveOrder?.items?.[0]?.shopName || (isTamil ? 'கடை' : 'Store');
+
+  // Trigger smooth transition whenever single order status updates in real-time
+  const lastSingleStatusRef = useRef(currentActiveOrder?.status);
+  useEffect(() => {
+    if (!isMultiOrder && lastSingleStatusRef.current !== currentActiveOrder?.status) {
+      lastSingleStatusRef.current = currentActiveOrder?.status;
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(pillContentFadeAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+          Animated.timing(pillContentTranslateY, { toValue: -5, duration: 180, useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(pillContentFadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
+          Animated.timing(pillContentTranslateY, { toValue: 0, duration: 220, useNativeDriver: true }),
+        ]),
+      ]).start();
+    }
+  }, [currentActiveOrder?.status, isMultiOrder]);
+
+  // Display text on the compact pill
+  const compactDisplayLabel = isMultiOrder
+    ? (isTamil
+        ? `${activeOrdersCount} ஆர்டர்கள் • ${currentShopName}: ${currentOrderInfo.badgeText}`
+        : `${activeOrdersCount} Orders • ${currentShopName}: ${currentOrderInfo.badgeText}`)
+    : `${currentOrderInfo.etaText} • ${currentOrderInfo.badgeText}`;
 
   const handleToggleTrackingExpand = () => {
     triggerHaptic('impactLight');
@@ -485,15 +618,7 @@ export const LiquidGlassHeader = ({
     let subtitle = '';
     let badgeColor = theme.neonGreen;
 
-    if (s.includes('deliver')) {
-      title = isTamil ? '✨ ஆர்டர் டெலிவரி செய்யப்பட்டது!' : '✨ Delivered Successfully!';
-      subtitle = `#${orderId} • ${lastOrderShopName}`;
-      badgeColor = '#10B981';
-    } else if (s.includes('cancel') || s.includes('reject')) {
-      title = isTamil ? '❌ ஆர்டர் ரத்து செய்யப்பட்டது' : '❌ Order Cancelled';
-      subtitle = `#${orderId}`;
-      badgeColor = '#EF4444';
-    } else if (s.includes('out') || s.includes('way') || s.includes('transit')) {
+    if (s.includes('out') || s.includes('way') || s.includes('transit') || s.includes('dispatched') || s.includes('delivering')) {
       title = isTamil ? '⚡ டெலிவரிக்கு புறப்பட்டது!' : '⚡ Out For Delivery!';
       subtitle = isTamil ? `~${deliveryCountdownInfo.mins} நிமிடம் • வழியில் உள்ளது` : `~${deliveryCountdownInfo.mins} mins left • On the way`;
       badgeColor = '#22C55E';
@@ -505,6 +630,14 @@ export const LiquidGlassHeader = ({
       title = isTamil ? '👍 கடைக்காரரால் ஏற்கப்பட்டது' : '👍 Order Accepted by Store';
       subtitle = `${lastOrderShopName} • #${orderId}`;
       badgeColor = '#22C55E';
+    } else if (s === 'delivered' || s === 'completed' || s.endsWith('delivered')) {
+      title = isTamil ? '✨ ஆர்டர் டெலிவரி செய்யப்பட்டது!' : '✨ Delivered Successfully!';
+      subtitle = `#${orderId} • ${lastOrderShopName}`;
+      badgeColor = '#10B981';
+    } else if (s.includes('cancel') || s.includes('reject')) {
+      title = isTamil ? '❌ ஆர்டர் ரத்து செய்யப்பட்டது' : '❌ Order Cancelled';
+      subtitle = `#${orderId}`;
+      badgeColor = '#EF4444';
     } else {
       title = isTamil ? '🎉 ஆர்டர் பதிவு செய்யப்பட்டது' : '🎉 Order Placed Successfully';
       subtitle = `#${orderId} • ${lastOrderShopName}`;
@@ -1213,20 +1346,29 @@ export const LiquidGlassHeader = ({
                     />
                     <View style={[styles.liveBeaconCore, { backgroundColor: theme.neonGreen }]}>
                       <Ionicons
-                        name={isGlobalOrder ? 'cube' : 'bicycle'}
+                        name={isCurrentGlobal ? 'cube' : 'bicycle'}
                         size={10}
                         color="#050906"
                       />
                     </View>
                   </View>
 
-                  <Text
-                    style={styles.trackingPillText}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
+                  <Animated.View
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      opacity: pillContentFadeAnim,
+                      transform: [{ translateY: pillContentTranslateY }],
+                    }}
                   >
-                    {compactDisplayLabel}
-                  </Text>
+                    <Text
+                      style={styles.trackingPillText}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {compactDisplayLabel}
+                    </Text>
+                  </Animated.View>
                 </View>
 
                 <Ionicons
@@ -1282,24 +1424,7 @@ export const LiquidGlassHeader = ({
                     const itemCount = (ord?.items && Array.isArray(ord.items)) ? ord.items.length : (ord?.totalItems || 1);
                     const totalAmount = ord?.total || ord?.totalAmount || ord?.grandTotal;
                     const isOrdGlobal = isOrderFromGlobalMode(ord);
-                    const ordStatus = (ord?.status || '').toLowerCase();
-
-                    let statusLabel = isTamil ? 'பதிவானது' : 'Placed';
-                    let statusDotColor = '#F59E0B';
-                    let statusEta = isTamil ? 'தயாராகிறது' : 'Preparing';
-                    if (ordStatus.includes('deliver')) {
-                      statusLabel = isTamil ? 'முடிந்தது' : 'Delivered';
-                      statusDotColor = theme.neonGreen;
-                      statusEta = isTamil ? 'சேர்ந்தது' : 'Arrived';
-                    } else if (ordStatus.includes('out') || ordStatus.includes('way') || ordStatus.includes('transit')) {
-                      statusLabel = isTamil ? 'வழியில்' : 'On the way';
-                      statusDotColor = theme.neonGreen;
-                      statusEta = isOrdGlobal ? (isTamil ? 'கூரியர்' : 'In Transit') : (isTamil ? '~14 நிமி' : '~14 mins');
-                    } else if (ordStatus.includes('pack') || ordStatus.includes('ready')) {
-                      statusLabel = isTamil ? 'தயார்' : 'Packing';
-                      statusDotColor = '#38BDF8';
-                      statusEta = isTamil ? 'பேக்கிங்' : '~15 mins';
-                    }
+                    const ordInfo = resolveOrderStatusInfo(ord?.status, isOrdGlobal);
 
                     return (
                       <TouchableOpacity
@@ -1348,9 +1473,9 @@ export const LiquidGlassHeader = ({
 
                           <View style={styles.multiOrderBottomRow}>
                             <View style={styles.multiStatusBadge}>
-                              <View style={[styles.miniStatusDot, { backgroundColor: statusDotColor }]} />
+                              <View style={[styles.miniStatusDot, { backgroundColor: ordInfo.dotColor }]} />
                               <Text style={[styles.multiStatusText, { color: isDarkMode ? '#CBD5E1' : '#475569' }]} numberOfLines={1}>
-                                {statusLabel} • {statusEta}
+                                {ordInfo.badgeText} • {ordInfo.etaText}
                               </Text>
                             </View>
                             <Text style={[styles.multiOrderSubMeta, { color: isDarkMode ? '#64748B' : '#94A3B8' }]}>
@@ -1376,7 +1501,7 @@ export const LiquidGlassHeader = ({
                   <View style={styles.expandedHeroRow}>
                     <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
                       <Text style={[styles.expandedEtaHeadline, { color: isDarkMode ? '#FFFFFF' : '#0F172A' }]} numberOfLines={1}>
-                        {liveEtaCountdownText} • {liveStatusBadgeText}
+                        {currentOrderInfo.etaText} • {currentOrderInfo.badgeText}
                       </Text>
                       <Text style={[styles.expandedStoreSub, { color: isDarkMode ? '#94A3B8' : '#64748B' }]} numberOfLines={1}>
                         {lastOrderShopName} • {lastOrderItemCount} {isTamil ? 'பொருட்கள்' : 'items'}
@@ -1414,8 +1539,8 @@ export const LiquidGlassHeader = ({
                       { key: 'transit', label: isTamil ? 'வழியில்' : 'On the Way', icon: 'bicycle' },
                       { key: 'delivered', label: isTamil ? 'டெலிவரி' : 'Delivered', icon: 'home' },
                     ].map((st, idx) => {
-                      const isDone = liveStepIndex >= idx;
-                      const isCurrent = liveStepIndex === idx;
+                      const isDone = currentOrderInfo.stepIndex >= idx;
+                      const isCurrent = currentOrderInfo.stepIndex === idx;
                       return (
                         <React.Fragment key={st.key}>
                           <View style={{ alignItems: 'center' }}>
@@ -1457,7 +1582,7 @@ export const LiquidGlassHeader = ({
                               style={[
                                 styles.stepLine,
                                 {
-                                  backgroundColor: liveStepIndex > idx ? theme.neonGreen : (isDarkMode ? '#1E2D22' : '#E2E8F0'),
+                                  backgroundColor: currentOrderInfo.stepIndex > idx ? theme.neonGreen : (isDarkMode ? '#1E2D22' : '#E2E8F0'),
                                 },
                               ]}
                             />

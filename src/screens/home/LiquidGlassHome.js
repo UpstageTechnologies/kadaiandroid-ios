@@ -770,8 +770,8 @@ export default function LiquidGlassHome({ navigation }) {
   const activeOrders = useMemo(() => {
     if (!orders || orders.length === 0) return [];
     return orders.filter(o => {
-      const status = (o.status || '').toLowerCase();
-      const isActive = !['delivered', 'cancelled', 'rejected'].includes(status);
+      const status = (o.status || '').toLowerCase().trim();
+      const isActive = !['delivered', 'completed', 'cancelled', 'rejected', 'failed'].includes(status);
       const matchesMode = isGlobal ? isOrderFromGlobalMode(o) : !isOrderFromGlobalMode(o);
       return isActive && matchesMode;
     });

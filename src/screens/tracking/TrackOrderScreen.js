@@ -254,11 +254,11 @@ export default function TrackOrderScreen({ route, navigation }) {
   const statusOrder = ['Order Placed', 'Accepted', 'Packed', 'Out For Delivery', 'Delivered'];
 
   const getOverallProgressRatio = status => {
-    const s = (status || '').toLowerCase();
-    if (s.includes('deliver')) return 1.0;
-    if (s.includes('out') || s.includes('way') || s.includes('transit')) return 0.8;
+    const s = (status || '').toLowerCase().trim();
+    if (s.includes('out') || s.includes('way') || s.includes('transit') || s.includes('dispatched') || s.includes('delivering')) return 0.8;
     if (s.includes('pack')) return 0.55;
     if (s.includes('accept')) return 0.35;
+    if (s === 'delivered' || s === 'completed' || s.endsWith('delivered')) return 1.0;
     return 0.15; // Placed
   };
 
@@ -277,8 +277,26 @@ export default function TrackOrderScreen({ route, navigation }) {
   // Delivery countdown & estimated ETA calculation
   const getDeliveryCountdown = order => {
     if (!order) return { text: '', mins: 0, statusLabel: '' };
-    const s = (order.status || '').toLowerCase();
-    if (s.includes('deliver')) {
+    const s = (order.status || '').toLowerCase().trim();
+    if (s.includes('out') || s.includes('way') || s.includes('transit') || s.includes('dispatched') || s.includes('delivering')) {
+      return {
+        text: isTamil ? '⚡ வழியில் உள்ளது' : '⚡ On the way',
+        mins: 14,
+        statusLabel: isTamil ? 'டெலிவரிக்கு புறப்பட்டது' : 'Out For Delivery',
+        badgeColor: '#22C55E',
+        isDelivered: false,
+      };
+    }
+    if (s.includes('pack') || s.includes('ready')) {
+      return {
+        text: isTamil ? '📦 பொருட்கள் தயார்' : '📦 Items Packed',
+        mins: 15,
+        statusLabel: isTamil ? 'பேக் செய்யப்பட்டது' : 'Packed & Ready',
+        badgeColor: '#38BDF8',
+        isDelivered: false,
+      };
+    }
+    if (s === 'delivered' || s === 'completed' || s.endsWith('delivered')) {
       return {
         text: isTamil ? '✨ டெலிவரி செய்யப்பட்டது' : '✨ Delivered Successfully',
         mins: 0,

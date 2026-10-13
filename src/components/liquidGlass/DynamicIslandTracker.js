@@ -322,20 +322,28 @@ export default function DynamicIslandTracker({ navigationRef }) {
   let etaCountdownText = '';
   let stepIndex = 0;
 
-  if (s.includes('deliver')) {
-    statusBadgeText = isTamil ? 'டெலிவரி செய்யப்பட்டது' : 'Delivered';
-    etaCountdownText = isTamil ? '✨ வந்து சேர்ந்தது' : '✨ Arrived';
-    stepIndex = 3;
-  } else if (s.includes('out') || s.includes('way') || s.includes('transit')) {
+  if (
+    s.includes('out') ||
+    s.includes('way') ||
+    s.includes('transit') ||
+    s.includes('dispatched') ||
+    s.includes('delivering') ||
+    s.includes('rider') ||
+    s.includes('driver')
+  ) {
     statusBadgeText = isTamil ? 'வழியில் உள்ளது' : 'On the way';
     etaCountdownText = isGlobal
       ? (isTamil ? '📦 கூரியர் பயணத்தில்' : '📦 In Transit')
       : (isTamil ? '⚡ ~14 நிமி' : '⚡ ~14 mins');
     stepIndex = 2;
-  } else if (s.includes('pack') || s.includes('ready')) {
+  } else if (s.includes('pack') || s.includes('ready') || s.includes('accept')) {
     statusBadgeText = isTamil ? 'பொருட்கள் தயார்' : 'Packing Items';
     etaCountdownText = isTamil ? '📦 பேக் செய்யப்படுகிறது' : '📦 Store Packing';
     stepIndex = 1;
+  } else if (s === 'delivered' || s === 'completed' || s.endsWith('delivered')) {
+    statusBadgeText = isTamil ? 'டெலிவரி செய்யப்பட்டது' : 'Delivered';
+    etaCountdownText = isTamil ? '✨ வந்து சேர்ந்தது' : '✨ Arrived';
+    stepIndex = 3;
   } else {
     statusBadgeText = isTamil ? 'பதிவானது' : 'Order Placed';
     etaCountdownText = isTamil ? '🎉 ஆர்டர் தயார்' : '🎉 Store Preparing';
