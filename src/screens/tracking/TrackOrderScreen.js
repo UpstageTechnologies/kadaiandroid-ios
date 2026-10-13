@@ -416,16 +416,26 @@ export default function TrackOrderScreen({ route, navigation }) {
     });
   };
 
-  const formatDateTime = isoString => {
-    if (!isoString) return '';
+  const formatDateTime = rawDate => {
+    if (!rawDate) return '';
     try {
-      const date = new Date(isoString);
+      let date;
+      if (typeof rawDate?.toDate === 'function') {
+        date = rawDate.toDate();
+      } else if (rawDate?.seconds) {
+        date = new Date(rawDate.seconds * 1000);
+      } else if (typeof rawDate === 'string' || typeof rawDate === 'number') {
+        date = new Date(rawDate);
+      } else {
+        return '';
+      }
+      if (isNaN(date.getTime())) return '';
       return `${date.toLocaleDateString()} • ${date.toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
       })}`;
     } catch (e) {
-      return isoString;
+      return '';
     }
   };
 
@@ -1062,11 +1072,11 @@ export default function TrackOrderScreen({ route, navigation }) {
 
           <View style={styles.addressBody}>
             <Text style={[styles.customerRecipientName, { color: theme.textWhite }]}>
-              {orderData.customerName || user?.displayName || 'Valued Customer'}
+              {typeof orderData.customerName === 'string' ? orderData.customerName : (orderData.customerName?.name || user?.displayName || 'Valued Customer')}
             </Text>
             {orderData.customerPhone || orderData.customerMobile ? (
               <Text style={[styles.customerPhoneText, { color: theme.textMuted }]}>
-                📞 {orderData.customerPhone || orderData.customerMobile}
+                📞 {typeof (orderData.customerPhone || orderData.customerMobile) === 'string' ? (orderData.customerPhone || orderData.customerMobile) : ''}
               </Text>
             ) : null}
 
@@ -1074,7 +1084,7 @@ export default function TrackOrderScreen({ route, navigation }) {
               {typeof orderData.deliveryAddress === 'object'
                 ? orderData.deliveryAddress?.formattedAddress ||
                   `${orderData.deliveryAddress?.line1 || ''}, ${orderData.deliveryAddress?.city || ''}`
-                : orderData.deliveryAddress || 'Standard Home Delivery'}
+                : String(orderData.deliveryAddress || 'Standard Home Delivery')}
             </Text>
 
             {orderData.instruction ? (
@@ -1086,7 +1096,7 @@ export default function TrackOrderScreen({ route, navigation }) {
               >
                 <Ionicons name="notifications-outline" size={13} color={theme.neonGreen} />
                 <Text style={[styles.instructionText, { color: theme.textWhite }]}>
-                  {orderData.instruction}
+                  {typeof orderData.instruction === 'string' ? orderData.instruction : (orderData.instruction?.text || '')}
                 </Text>
               </View>
             ) : null}
