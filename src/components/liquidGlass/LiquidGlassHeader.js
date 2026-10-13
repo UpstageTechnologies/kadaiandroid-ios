@@ -25,7 +25,6 @@ import { DeliveryLocationFlowModal } from './AddressManagementModals';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const FULL_BAR_WIDTH = screenWidth - 20; // 10px padding on each side from headerOuter
-const COMPACT_TRACKING_WIDTH = Math.min(208, Math.floor(FULL_BAR_WIDTH * 0.56));
 
 export const LiquidGlassHeader = ({
   userAddress = {},
@@ -318,6 +317,19 @@ export const LiquidGlassHeader = ({
     }
   }, [isOrderActive]);
 
+  // Dynamic measurement of Categories pill width so Live Tracking stretches to fill the entire remaining space
+  const [categoriesWidth, setCategoriesWidth] = useState(146);
+
+  const handleCategoriesLayout = useCallback(e => {
+    const w = Math.round(e.nativeEvent.layout.width);
+    if (w > 50 && Math.abs(w - categoriesWidth) > 1) {
+      setCategoriesWidth(w);
+    }
+  }, [categoriesWidth]);
+
+  // Live Tracking Pill compact width stretches from (categoriesWidth + 8px gap) to the right edge (right: 0)
+  const compactTrackingWidth = Math.max(140, FULL_BAR_WIDTH - categoriesWidth - 8);
+
   // Interpolations for smooth morphing in Row 2 (Zero layout jumping, clamped bounds)
   const categoriesOpacity = isOrderActive
     ? trackingMorphAnim.interpolate({
@@ -329,7 +341,7 @@ export const LiquidGlassHeader = ({
 
   const trackingWidth = trackingMorphAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [COMPACT_TRACKING_WIDTH, FULL_BAR_WIDTH],
+    outputRange: [compactTrackingWidth, FULL_BAR_WIDTH],
     extrapolate: 'clamp',
   });
 
@@ -1051,6 +1063,7 @@ export const LiquidGlassHeader = ({
               opacity: categoriesOpacity,
             },
           ]}
+          onLayout={handleCategoriesLayout}
           pointerEvents={isTrackingExpanded ? 'none' : 'auto'}
         >
           <TouchableOpacity
