@@ -30,14 +30,24 @@ import { triggerHaptic } from '../../components/liquidGlass/safeHaptics';
 export default function TrackOrderScreen({ route, navigation }) {
   const db = getFirestore();
   const { user } = useContext(AuthContext);
-  const routeOrderId = route?.params?.orderId || '';
-  const [activeOrderId, setActiveOrderId] = useState(routeOrderId);
+  const rawOrderId = route?.params?.orderId || route?.params?.order;
+  const initialOrderId =
+    typeof rawOrderId === 'object' && rawOrderId !== null
+      ? String(rawOrderId?.orderId || rawOrderId?.id || '')
+      : (rawOrderId ? String(rawOrderId) : '');
+  const [activeOrderId, setActiveOrderId] = useState(initialOrderId);
+  const routeOrderId = initialOrderId;
   const insets = useSafeAreaInsets();
   const systemColorScheme = useColorScheme();
 
-  // Local state
-  const [orderData, setOrderData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Local state - instant pre-hydration if order object was passed in route params
+  const passedOrder =
+    typeof rawOrderId === 'object' && rawOrderId !== null
+      ? rawOrderId
+      : (route?.params?.order && typeof route?.params?.order === 'object' ? route?.params?.order : null);
+
+  const [orderData, setOrderData] = useState(passedOrder);
+  const [loading, setLoading] = useState(!passedOrder || !passedOrder.status);
   const [language, setLanguage] = useState('en');
   const [themePreference, setThemePreference] = useState('dark');
   const [, setTimerTick] = useState(0);
@@ -481,7 +491,7 @@ export default function TrackOrderScreen({ route, navigation }) {
           {isTamil ? 'நேரலை ஜி.பி.எஸ் ரேடார் இணைகிறது...' : 'Connecting to Live Delivery Radar...'}
         </Text>
         <Text style={[styles.loadingSubtitle, { color: theme.textMuted }]}>
-          #{activeOrderId || routeOrderId || 'Live Order'}
+          #{String(activeOrderId || routeOrderId || 'Live Order')}
         </Text>
       </View>
     );
@@ -515,8 +525,8 @@ export default function TrackOrderScreen({ route, navigation }) {
           </Text>
           <Text style={[styles.emptyCardDesc, { color: theme.textMuted }]}>
             {isTamil
-              ? `ஆர்டர் #${activeOrderId || routeOrderId || ''} கணக்கில் கண்டறியப்படவில்லை.`
-              : `Order #${activeOrderId || routeOrderId || ''} was not found or was completed.`}
+              ? `ஆர்டர் #${String(activeOrderId || routeOrderId || '')} கணக்கில் கண்டறியப்படவில்லை.`
+              : `Order #${String(activeOrderId || routeOrderId || '')} was not found or was completed.`}
           </Text>
           <TouchableOpacity
             style={[styles.primaryActionBtn, { backgroundColor: theme.neonGreen }]}
@@ -607,7 +617,7 @@ export default function TrackOrderScreen({ route, navigation }) {
             activeOpacity={0.7}
           >
             <Text style={[styles.orderIdPillText, { color: theme.neonGreen }]}>
-              #{orderData.orderId || orderData.id || activeOrderId || routeOrderId}
+              #{String(orderData?.orderId || orderData?.id || activeOrderId || routeOrderId || '')}
             </Text>
             <Ionicons name="copy-outline" size={13} color={theme.neonGreen} />
           </TouchableOpacity>

@@ -24,11 +24,8 @@ import { triggerHaptic } from './safeHaptics';
 import { DeliveryLocationFlowModal } from './AddressManagementModals';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-const ROW_PADDING = 14;
-const ROW_GAP = 8;
-const FULL_CARD_WIDTH = screenWidth - (ROW_PADDING * 2);
-const COMPACT_PILL_WIDTH = (FULL_CARD_WIDTH - ROW_GAP) / 2;
-const DELTA_X = (COMPACT_PILL_WIDTH + ROW_GAP) / 2;
+const FULL_BAR_WIDTH = screenWidth - 20; // 10px padding on each side from headerOuter
+const COMPACT_TRACKING_WIDTH = Math.min(176, Math.floor(FULL_BAR_WIDTH * 0.48));
 
 export const LiquidGlassHeader = ({
   userAddress = {},
@@ -330,15 +327,9 @@ export const LiquidGlassHeader = ({
       })
     : 1;
 
-  const trackingTranslateX = trackingMorphAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [DELTA_X, 0],
-    extrapolate: 'clamp',
-  });
-
   const trackingWidth = trackingMorphAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [COMPACT_PILL_WIDTH, FULL_CARD_WIDTH],
+    outputRange: [COMPACT_TRACKING_WIDTH, FULL_BAR_WIDTH],
     extrapolate: 'clamp',
   });
 
@@ -350,7 +341,7 @@ export const LiquidGlassHeader = ({
 
   const trackingBorderRadius = trackingMorphAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [19, 22],
+    outputRange: [19, 20],
     extrapolate: 'clamp',
   });
 
@@ -1057,7 +1048,6 @@ export const LiquidGlassHeader = ({
           style={[
             styles.categoriesPillWrap,
             {
-              width: isOrderActive ? COMPACT_PILL_WIDTH : FULL_CARD_WIDTH,
               opacity: categoriesOpacity,
             },
           ]}
@@ -1114,7 +1104,7 @@ export const LiquidGlassHeader = ({
               name={activePanel === 'categories' ? 'chevron-up' : 'chevron-down'}
               size={11}
               color={activePanel === 'categories' ? theme.neonGreen : (isDarkMode ? '#9CA3AF' : '#64748B')}
-              style={{ marginLeft: 3 }}
+              style={{ marginLeft: 4 }}
             />
           </TouchableOpacity>
         </Animated.View>
@@ -1130,7 +1120,6 @@ export const LiquidGlassHeader = ({
                 borderRadius: trackingBorderRadius,
                 backgroundColor: trackingBgColor,
                 borderColor: trackingBorderColor,
-                transform: [{ translateX: trackingTranslateX }],
               },
             ]}
           >
@@ -1230,10 +1219,14 @@ export const LiquidGlassHeader = ({
                   style={[styles.expandedTrackBtn, { backgroundColor: theme.neonGreen }]}
                   onPress={() => {
                     handleCollapseTracking();
+                    const targetOrderId = lastOrder?.orderId || lastOrder?.id || (typeof lastOrder === 'string' ? lastOrder : '');
                     if (onTrackOrder) {
-                      onTrackOrder(lastOrder);
+                      onTrackOrder(targetOrderId);
                     } else if (navigation) {
-                      navigation.navigate('TrackOrderScreen', { orderId: lastOrder?.orderId || lastOrder?.id });
+                      navigation.navigate('TrackOrderScreen', {
+                        orderId: targetOrderId,
+                        order: typeof lastOrder === 'object' && lastOrder !== null ? lastOrder : undefined,
+                      });
                     }
                   }}
                   activeOpacity={0.82}
@@ -2628,20 +2621,20 @@ const styles = StyleSheet.create({
   },
   categoriesPillWrap: {
     position: 'absolute',
-    left: 14,
+    left: 0,
     top: 0,
     height: 38,
-    overflow: 'hidden',
+    alignSelf: 'flex-start',
+    zIndex: 60,
   },
   matchingGlassPill: {
-    width: '100%',
     height: 38,
     borderRadius: 19,
     borderWidth: 1.2,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    alignSelf: 'flex-start',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
@@ -2651,14 +2644,11 @@ const styles = StyleSheet.create({
   pillLeftContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-    minWidth: 0,
   },
   matchingPillText: {
     fontSize: 11.5,
     fontWeight: '700',
     letterSpacing: -0.2,
-    flexShrink: 1,
   },
   filterBadgeCircle: {
     width: 16,
@@ -2676,8 +2666,8 @@ const styles = StyleSheet.create({
   },
   trackingMorphCard: {
     position: 'absolute',
+    right: 0,
     top: 0,
-    alignSelf: 'center',
     zIndex: 100,
     borderWidth: 1.2,
     shadowColor: '#10B981',
@@ -2706,9 +2696,9 @@ const styles = StyleSheet.create({
   trackingExpandedCard: {
     position: 'absolute',
     left: 0,
+    right: 0,
     top: 0,
-    width: FULL_CARD_WIDTH,
-    height: 156,
+    bottom: 0,
     paddingHorizontal: 12,
     paddingVertical: 10,
     justifyContent: 'space-between',

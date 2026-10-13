@@ -957,7 +957,15 @@ export default function LiquidGlassHome({ navigation }) {
         priceRange={priceRange}
         onSelectPriceRange={setPriceRange}
         lastOrder={activeOrder}
-        onTrackOrder={orderId => navigation.navigate('TrackOrderScreen', { orderId })}
+        onTrackOrder={target => {
+          const orderId = typeof target === 'object' && target !== null
+            ? String(target.orderId || target.id || '')
+            : (target ? String(target) : '');
+          navigation.navigate('TrackOrderScreen', {
+            orderId,
+            order: typeof target === 'object' && target !== null ? target : undefined,
+          });
+        }}
       />
 
       {/* MAIN BODY: LEFT SIDEBAR RAIL + RIGHT CONTENT AREA */}
