@@ -300,41 +300,25 @@ export const LiquidGlassHeader = ({
     (selectedType && selectedType !== 'all' ? 1 : 0) +
     (priceRange && priceRange !== 'all' ? 1 : 0);
 
-  // Radar beacon animation for the Live Tracking Pill next to Categories
-  const liveRadarScale = useRef(new Animated.Value(1)).current;
-  const liveRadarOpacity = useRef(new Animated.Value(0.85)).current;
+  // Subtle, minimal breathing glow animation across the whole Live Tracking Pill
+  const pillGlowAnim = useRef(new Animated.Value(0.05)).current;
 
   useEffect(() => {
     if (!isOrderActive) return;
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.parallel([
-          Animated.timing(liveRadarScale, {
-            toValue: 2.2,
-            duration: 1300,
-            easing: Easing.out(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(liveRadarOpacity, {
-            toValue: 0,
-            duration: 1300,
-            easing: Easing.out(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.parallel([
-          Animated.timing(liveRadarScale, {
-            toValue: 1,
-            duration: 0,
-            useNativeDriver: true,
-          }),
-          Animated.timing(liveRadarOpacity, {
-            toValue: 0.85,
-            duration: 0,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.delay(400),
+        Animated.timing(pillGlowAnim, {
+          toValue: 0.22,
+          duration: 1800,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pillGlowAnim, {
+          toValue: 0.04,
+          duration: 1800,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
       ])
     );
     loop.start();
@@ -420,8 +404,10 @@ export const LiquidGlassHeader = ({
   }, [isMultiOrder, activeOrdersList.length, isTrackingExpanded]);
 
   // Active displayed order on the compact pill (cycled or urgent)
+  const activeOrderIndex = isMultiOrder ? (cycleIndex % activeOrdersList.length) : 0;
+  const activeOrderNumber = activeOrderIndex + 1;
   const currentActiveOrder = isMultiOrder
-    ? (activeOrdersList[cycleIndex % activeOrdersList.length] || urgentOrder || primaryOrder)
+    ? (activeOrdersList[activeOrderIndex] || urgentOrder || primaryOrder)
     : (urgentOrder || primaryOrder);
 
   const isCurrentGlobal = isOrderFromGlobalMode(currentActiveOrder);
@@ -446,12 +432,14 @@ export const LiquidGlassHeader = ({
     }
   }, [currentActiveOrder?.status, isMultiOrder]);
 
-  // Display text on the compact pill
-  const compactDisplayLabel = isMultiOrder
+  // Dynamic counter & status text on the compact pill (e.g., "1 of 12 orders • On the way")
+  const compactPrimaryLabel = isMultiOrder
     ? (isTamil
-        ? `${activeOrdersCount} ஆர்டர்கள் • ${currentShopName}: ${currentOrderInfo.badgeText}`
-        : `${activeOrdersCount} Orders • ${currentShopName}: ${currentOrderInfo.badgeText}`)
-    : `${currentOrderInfo.etaText} • ${currentOrderInfo.badgeText}`;
+        ? `${activeOrderNumber}/${activeOrdersCount} ஆர்டர்கள்`
+        : `${activeOrderNumber} of ${activeOrdersCount} orders`)
+    : currentOrderInfo.etaText;
+  const compactStatusLabel = currentOrderInfo.badgeText;
+  const compactDisplayLabel = `${compactPrimaryLabel} • ${compactStatusLabel}`;
 
   const handleToggleTrackingExpand = () => {
     triggerHaptic('impactLight');
@@ -554,8 +542,8 @@ export const LiquidGlassHeader = ({
   const trackingBorderColor = trackingMorphAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [
-      isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
-      theme.neonGreen,
+      isDarkMode ? 'rgba(16, 185, 129, 0.55)' : 'rgba(16, 185, 129, 0.45)',
+      '#10B981',
     ],
     extrapolate: 'clamp',
   });
@@ -563,7 +551,7 @@ export const LiquidGlassHeader = ({
   const trackingBgColor = trackingMorphAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [
-      isDarkMode ? '#132018' : '#FFFFFF',
+      isDarkMode ? '#0E3624' : '#DCFCE7',
       isDarkMode ? '#08120B' : '#FFFFFF',
     ],
     extrapolate: 'clamp',
@@ -1326,25 +1314,30 @@ export const LiquidGlassHeader = ({
               ]}
               pointerEvents={isTrackingExpanded ? 'none' : 'auto'}
             >
+              {/* Subtle, minimal whole-pill breathing glow overlay */}
+              <Animated.View
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  backgroundColor: '#10B981',
+                  opacity: pillGlowAnim,
+                  borderRadius: 19,
+                }}
+              />
+
               <TouchableOpacity
                 style={styles.trackingCompactTouchable}
                 onPress={handleToggleTrackingExpand}
                 activeOpacity={0.82}
               >
                 <View style={styles.trackingCompactLeft}>
-                  {/* Pulsing Radar Ring & Vehicle Icon */}
+                  {/* Clean, minimal accent vehicle icon badge */}
                   <View style={styles.liveTrackingIconWrap}>
-                    <Animated.View
-                      style={[
-                        styles.radarPulseRing,
-                        {
-                          transform: [{ scale: liveRadarScale }],
-                          opacity: liveRadarOpacity,
-                          borderColor: theme.neonGreen,
-                        },
-                      ]}
-                    />
-                    <View style={[styles.liveBeaconCore, { backgroundColor: theme.neonGreen }]}>
+                    <View style={[styles.liveBeaconCore, { backgroundColor: '#10B981' }]}>
                       <Ionicons
                         name={isCurrentGlobal ? 'cube' : 'bicycle'}
                         size={10}
@@ -1362,11 +1355,19 @@ export const LiquidGlassHeader = ({
                     }}
                   >
                     <Text
-                      style={styles.trackingPillText}
+                      style={[
+                        styles.trackingPillText,
+                        { color: isDarkMode ? '#ECFDF5' : '#065F46' },
+                      ]}
                       numberOfLines={1}
                       ellipsizeMode="tail"
                     >
-                      {compactDisplayLabel}
+                      <Text style={{ color: isDarkMode ? '#FFFFFF' : '#064E3B', fontWeight: '800' }}>
+                        {compactPrimaryLabel}
+                      </Text>
+                      <Text style={{ color: isDarkMode ? '#34D399' : '#059669', fontWeight: '800' }}>
+                        {` • ${compactStatusLabel}`}
+                      </Text>
                     </Text>
                   </Animated.View>
                 </View>
@@ -1374,7 +1375,7 @@ export const LiquidGlassHeader = ({
                 <Ionicons
                   name="chevron-down"
                   size={11}
-                  color={theme.neonGreen}
+                  color={isDarkMode ? '#34D399' : '#059669'}
                   style={{ marginLeft: 4, flexShrink: 0 }}
                 />
               </TouchableOpacity>
@@ -1391,12 +1392,12 @@ export const LiquidGlassHeader = ({
               {/* Top Row: Badge & Collapse Button */}
               <View style={styles.expandedHeaderRow}>
                 <View style={styles.expandedBadgeWrap}>
-                  <View style={[styles.pulsingCoreDot, { backgroundColor: theme.neonGreen }]} />
-                  <Text style={[styles.expandedBadgeText, { color: theme.neonGreen }]}>
+                  <View style={[styles.pulsingCoreDot, { backgroundColor: '#10B981' }]} />
+                  <Text style={[styles.expandedBadgeText, { color: '#10B981' }]}>
                     {isMultiOrder
                       ? (isTamil
-                          ? `நேரலை கண்காணிப்பு • ${activeOrdersCount} ஆர்டர்கள்`
-                          : `LIVE ORDER TRACKING • ${activeOrdersCount} ACTIVE ORDERS`)
+                          ? `நேரலை கண்காணிப்பு • ${activeOrderNumber}/${activeOrdersCount} ஆர்டர்கள்`
+                          : `LIVE ORDER TRACKING • ${activeOrderNumber} OF ${activeOrdersCount} ORDERS`)
                       : `${isTamil ? 'நேரலை கண்காணிப்பு' : 'LIVE ORDER TRACKING'} • #${lastOrder?.orderId || lastOrder?.id || ''}`}
                   </Text>
                 </View>
@@ -1406,7 +1407,7 @@ export const LiquidGlassHeader = ({
                   onPress={handleCollapseTracking}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Ionicons name="chevron-up" size={17} color={theme.neonGreen} />
+                  <Ionicons name="chevron-up" size={17} color="#10B981" />
                 </TouchableOpacity>
               </View>
 
@@ -1454,7 +1455,7 @@ export const LiquidGlassHeader = ({
                           <Ionicons
                             name={isOrdGlobal ? 'cube' : 'bicycle'}
                             size={14}
-                            color={theme.neonGreen}
+                            color="#10B981"
                           />
                         </View>
 
@@ -1465,7 +1466,7 @@ export const LiquidGlassHeader = ({
                               {ordShop}
                             </Text>
                             {totalAmount ? (
-                              <Text style={[styles.multiOrderPrice, { color: theme.neonGreen }]}>
+                              <Text style={[styles.multiOrderPrice, { color: '#10B981' }]}>
                                 ₹{Math.round(totalAmount)}
                               </Text>
                             ) : null}
@@ -1479,13 +1480,13 @@ export const LiquidGlassHeader = ({
                               </Text>
                             </View>
                             <Text style={[styles.multiOrderSubMeta, { color: isDarkMode ? '#64748B' : '#94A3B8' }]}>
-                              #{String(ordId).slice(-6)} • {itemCount} {isTamil ? 'பொருட்கள்' : 'items'}
+                              {isTamil ? `${idx + 1}/${activeOrdersCount}` : `${idx + 1} of ${activeOrdersCount}`} • #{String(ordId).slice(-6)}
                             </Text>
                           </View>
                         </View>
 
                         {/* Track CTA */}
-                        <View style={[styles.multiTrackBtn, { backgroundColor: theme.neonGreen }]}>
+                        <View style={[styles.multiTrackBtn, { backgroundColor: '#10B981' }]}>
                           <Text style={styles.multiTrackBtnText}>
                             {isTamil ? 'வரைபடம்' : 'Track'}
                           </Text>
