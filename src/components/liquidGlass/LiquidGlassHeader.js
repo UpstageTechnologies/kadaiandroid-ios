@@ -25,7 +25,7 @@ import { DeliveryLocationFlowModal } from './AddressManagementModals';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const FULL_BAR_WIDTH = screenWidth - 20; // 10px padding on each side from headerOuter
-const COMPACT_TRACKING_WIDTH = Math.min(176, Math.floor(FULL_BAR_WIDTH * 0.48));
+const COMPACT_TRACKING_WIDTH = Math.min(208, Math.floor(FULL_BAR_WIDTH * 0.56));
 
 export const LiquidGlassHeader = ({
   userAddress = {},
@@ -263,12 +263,12 @@ export const LiquidGlassHeader = ({
       : (isTamil ? '⚡ ~14 நிமி' : '⚡ ~14 mins');
     liveStepIndex = 2;
   } else if (liveOrderStatus.includes('pack') || liveOrderStatus.includes('ready')) {
-    liveStatusBadgeText = isTamil ? 'தயாரானது' : 'Packing Items';
-    liveEtaCountdownText = isTamil ? '📦 பேக்கிங்' : '📦 Packing';
+    liveStatusBadgeText = isTamil ? 'தயாராகிறது' : 'Packing';
+    liveEtaCountdownText = isTamil ? '📦 பேக்கிங்' : '📦 15 mins';
     liveStepIndex = 1;
   } else {
-    liveStatusBadgeText = isTamil ? 'பதிவானது' : 'Order Placed';
-    liveEtaCountdownText = isTamil ? '🎉 ஆர்டர் தயார்' : '🎉 Preparing';
+    liveStatusBadgeText = isTamil ? 'பதிவானது' : 'Placed';
+    liveEtaCountdownText = isTamil ? '🎉 ஆர்டர்' : '🎉 Preparing';
     liveStepIndex = 0;
   }
 
@@ -1136,7 +1136,7 @@ export const LiquidGlassHeader = ({
                 onPress={handleToggleTrackingExpand}
                 activeOpacity={0.82}
               >
-                <View style={styles.pillLeftContent}>
+                <View style={styles.trackingCompactLeft}>
                   {/* Pulsing Radar Ring & Vehicle Icon */}
                   <View style={styles.liveTrackingIconWrap}>
                     <Animated.View
@@ -1159,11 +1159,9 @@ export const LiquidGlassHeader = ({
                   </View>
 
                   <Text
-                    style={[
-                      styles.matchingPillText,
-                      { color: theme.neonGreen, fontWeight: '800', marginLeft: 5 },
-                    ]}
+                    style={styles.trackingPillText}
                     numberOfLines={1}
+                    ellipsizeMode="tail"
                   >
                     {liveEtaCountdownText} • {liveStatusBadgeText}
                   </Text>
@@ -1173,7 +1171,7 @@ export const LiquidGlassHeader = ({
                   name="chevron-down"
                   size={11}
                   color={theme.neonGreen}
-                  style={{ marginLeft: 3 }}
+                  style={{ marginLeft: 4, flexShrink: 0 }}
                 />
               </TouchableOpacity>
             </Animated.View>
@@ -2692,6 +2690,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  trackingCompactLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+    marginRight: 4,
+  },
+  trackingPillText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+    color: '#10B981',
+    marginLeft: 5,
+    flexShrink: 1,
   },
   trackingExpandedCard: {
     position: 'absolute',
