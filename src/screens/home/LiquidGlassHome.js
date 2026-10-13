@@ -767,14 +767,19 @@ export default function LiquidGlassHome({ navigation }) {
     return false;
   };
 
-  const activeOrder = useMemo(() => {
-    if (!orders || orders.length === 0) return null;
-    return orders.find(o => (isGlobal ? isOrderFromGlobalMode(o) : !isOrderFromGlobalMode(o))) || null;
+  const activeOrders = useMemo(() => {
+    if (!orders || orders.length === 0) return [];
+    return orders.filter(o => {
+      const status = (o.status || '').toLowerCase();
+      const isActive = !['delivered', 'cancelled', 'rejected'].includes(status);
+      const matchesMode = isGlobal ? isOrderFromGlobalMode(o) : !isOrderFromGlobalMode(o);
+      return isActive && matchesMode;
+    });
   }, [orders, isGlobal]);
 
-  const isOrderActive =
-    activeOrder &&
-    !['delivered', 'cancelled', 'rejected'].includes((activeOrder.status || '').toLowerCase());
+  const activeOrder = activeOrders[0] || null;
+
+  const isOrderActive = activeOrders.length > 0;
 
   // Extract and tally categories dynamically from Upstage POS seller inventory & catalog
   const upstageCategories = useMemo(() => {
@@ -957,6 +962,8 @@ export default function LiquidGlassHome({ navigation }) {
         priceRange={priceRange}
         onSelectPriceRange={setPriceRange}
         lastOrder={activeOrder}
+        activeOrders={activeOrders}
+        orders={orders}
         onTrackOrder={target => {
           const orderId = typeof target === 'object' && target !== null
             ? String(target.orderId || target.id || '')

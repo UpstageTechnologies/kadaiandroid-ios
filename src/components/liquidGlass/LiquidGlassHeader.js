@@ -57,6 +57,8 @@ export const LiquidGlassHeader = ({
   priceRange = 'all',
   onSelectPriceRange,
   lastOrder = null,
+  activeOrders: passedActiveOrders = null,
+  orders = [],
   onTrackOrder,
 }) => {
   const isTamil = language === 'ta';
@@ -184,13 +186,33 @@ export const LiquidGlassHeader = ({
     return false;
   };
 
-  const isGlobalOrder = isOrderFromGlobalMode(lastOrder);
+  // Derive list of all active orders matching current shopping mode
+  const activeOrdersList = useMemo(() => {
+    if (Array.isArray(passedActiveOrders) && passedActiveOrders.length > 0) {
+      return passedActiveOrders;
+    }
+    if (Array.isArray(orders) && orders.length > 0) {
+      return orders.filter(o => {
+        const st = (o.status || '').toLowerCase();
+        const isActive = !['delivered', 'cancelled', 'rejected'].includes(st);
+        const matchesMode = isGlobal ? isOrderFromGlobalMode(o) : !isOrderFromGlobalMode(o);
+        return isActive && matchesMode;
+      });
+    }
+    if (lastOrder && !['delivered', 'cancelled', 'rejected'].includes((lastOrder.status || '').toLowerCase())) {
+      const isGlob = isOrderFromGlobalMode(lastOrder);
+      if (isGlobal ? isGlob : !isGlob) {
+        return [lastOrder];
+      }
+    }
+    return [];
+  }, [passedActiveOrders, orders, lastOrder, isGlobal]);
 
-  // Tracking of local mode shopping shouldn't show in Global mode
-  const isOrderActive =
-    lastOrder &&
-    !['delivered', 'cancelled', 'rejected'].includes((lastOrder.status || '').toLowerCase()) &&
-    (isGlobal ? isGlobalOrder : !isGlobalOrder);
+  const activeOrdersCount = activeOrdersList.length;
+  const isOrderActive = activeOrdersCount > 0;
+  const isMultiOrder = activeOrdersCount > 1;
+  const primaryOrder = activeOrdersList[0] || lastOrder;
+  const isGlobalOrder = isOrderFromGlobalMode(primaryOrder);
 
   // Dynamic notification state for the location capsule bar (notifies once, then reverts to default)
   const [locationNotification, setLocationNotification] = useState(null);
@@ -245,8 +267,24 @@ export const LiquidGlassHeader = ({
     return () => loop.stop();
   }, [isOrderActive]);
 
+  // Find urgent or transit order to highlight in compact mode
+  const urgentOrder = useMemo(() => {
+    if (activeOrdersList.length === 0) return primaryOrder;
+    const inTransit = activeOrdersList.find(o => {
+      const s = (o.status || '').toLowerCase();
+      return s.includes('out') || s.includes('way') || s.includes('transit');
+    });
+    if (inTransit) return inTransit;
+    const packing = activeOrdersList.find(o => {
+      const s = (o.status || '').toLowerCase();
+      return s.includes('pack') || s.includes('ready');
+    });
+    if (packing) return packing;
+    return activeOrdersList[0];
+  }, [activeOrdersList, primaryOrder]);
+
   // Live Tracking Text Calculations for Pill & Dropdown
-  const liveOrderStatus = (lastOrder?.status || '').toLowerCase();
+  const liveOrderStatus = (urgentOrder?.status || primaryOrder?.status || '').toLowerCase();
   let liveStatusBadgeText = '';
   let liveEtaCountdownText = '';
   let liveStepIndex = 0;
@@ -270,6 +308,13 @@ export const LiquidGlassHeader = ({
     liveEtaCountdownText = isTamil ? '🎉 ஆர்டர்' : '🎉 Preparing';
     liveStepIndex = 0;
   }
+
+  // Label displayed inside compact pill
+  const compactDisplayLabel = isMultiOrder
+    ? (isTamil
+        ? `${activeOrdersCount} ஆர்டர்கள் • ${liveStatusBadgeText}`
+        : `${activeOrdersCount} Orders • ${liveStatusBadgeText}`)
+    : `${liveEtaCountdownText} • ${liveStatusBadgeText}`;
 
   // Dynamic Island Morph Animation for Row 2 Live Tracking Pill
   const [isTrackingExpanded, setIsTrackingExpanded] = useState(false);
@@ -345,9 +390,13 @@ export const LiquidGlassHeader = ({
     extrapolate: 'clamp',
   });
 
+  const expandedPanelHeight = isMultiOrder
+    ? Math.min(270, 48 + (activeOrdersCount * 86))
+    : 156;
+
   const trackingHeight = trackingMorphAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [38, 156],
+    outputRange: [38, expandedPanelHeight],
     extrapolate: 'clamp',
   });
 
@@ -1176,7 +1225,7 @@ export const LiquidGlassHeader = ({
                     numberOfLines={1}
                     ellipsizeMode="tail"
                   >
-                    {liveEtaCountdownText} • {liveStatusBadgeText}
+                    {compactDisplayLabel}
                   </Text>
                 </View>
 
@@ -1202,7 +1251,11 @@ export const LiquidGlassHeader = ({
                 <View style={styles.expandedBadgeWrap}>
                   <View style={[styles.pulsingCoreDot, { backgroundColor: theme.neonGreen }]} />
                   <Text style={[styles.expandedBadgeText, { color: theme.neonGreen }]}>
-                    {isTamil ? 'நேரலை கண்காணிப்பு' : 'LIVE ORDER TRACKING'} • #{lastOrder?.orderId || lastOrder?.id || ''}
+                    {isMultiOrder
+                      ? (isTamil
+                          ? `நேரலை கண்காணிப்பு • ${activeOrdersCount} ஆர்டர்கள்`
+                          : `LIVE ORDER TRACKING • ${activeOrdersCount} ACTIVE ORDERS`)
+                      : `${isTamil ? 'நேரலை கண்காணிப்பு' : 'LIVE ORDER TRACKING'} • #${lastOrder?.orderId || lastOrder?.id || ''}`}
                   </Text>
                 </View>
 
@@ -1215,100 +1268,206 @@ export const LiquidGlassHeader = ({
                 </TouchableOpacity>
               </View>
 
-              {/* Middle Row: Large ETA & Store Info + Track Live CTA */}
-              <View style={styles.expandedHeroRow}>
-                <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
-                  <Text style={[styles.expandedEtaHeadline, { color: isDarkMode ? '#FFFFFF' : '#0F172A' }]} numberOfLines={1}>
-                    {liveEtaCountdownText} • {liveStatusBadgeText}
-                  </Text>
-                  <Text style={[styles.expandedStoreSub, { color: isDarkMode ? '#94A3B8' : '#64748B' }]} numberOfLines={1}>
-                    {lastOrderShopName} • {lastOrderItemCount} {isTamil ? 'பொருட்கள்' : 'items'}
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  style={[styles.expandedTrackBtn, { backgroundColor: theme.neonGreen }]}
-                  onPress={() => {
-                    handleCollapseTracking();
-                    const targetOrderId = lastOrder?.orderId || lastOrder?.id || (typeof lastOrder === 'string' ? lastOrder : '');
-                    if (onTrackOrder) {
-                      onTrackOrder(targetOrderId);
-                    } else if (navigation) {
-                      navigation.navigate('TrackOrderScreen', {
-                        orderId: targetOrderId,
-                        order: typeof lastOrder === 'object' && lastOrder !== null ? lastOrder : undefined,
-                      });
-                    }
-                  }}
-                  activeOpacity={0.82}
+              {isMultiOrder ? (
+                <ScrollView
+                  style={styles.multiOrdersScroll}
+                  contentContainerStyle={styles.multiOrdersScrollContent}
+                  nestedScrollEnabled={true}
+                  showsVerticalScrollIndicator={activeOrdersCount > 2}
+                  keyboardShouldPersistTaps="handled"
                 >
-                  <Text style={styles.expandedTrackBtnText}>
-                    {isTamil ? 'வரைபடம்' : 'Track Live'}
-                  </Text>
-                  <Ionicons name="navigate" size={12} color="#050906" />
-                </TouchableOpacity>
-              </View>
+                  {activeOrdersList.map((ord, idx) => {
+                    const ordId = ord?.orderId || ord?.id || `ORD-${idx}`;
+                    const ordShop = ord?.shopName || ord?.sellerName || ord?.storeName || ord?.items?.[0]?.shopName || (isTamil ? 'கடை' : 'Store');
+                    const itemCount = (ord?.items && Array.isArray(ord.items)) ? ord.items.length : (ord?.totalItems || 1);
+                    const totalAmount = ord?.total || ord?.totalAmount || ord?.grandTotal;
+                    const isOrdGlobal = isOrderFromGlobalMode(ord);
+                    const ordStatus = (ord?.status || '').toLowerCase();
 
-              {/* Bottom Row: 4-Step Progress Stepper */}
-              <View style={styles.expandedStepperRow}>
-                {[
-                  { key: 'placed', label: isTamil ? 'பதிவு' : 'Placed', icon: 'checkmark-circle' },
-                  { key: 'packed', label: isTamil ? 'தயார்' : 'Packed', icon: 'cube' },
-                  { key: 'transit', label: isTamil ? 'வழியில்' : 'On the Way', icon: 'bicycle' },
-                  { key: 'delivered', label: isTamil ? 'டெலிவரி' : 'Delivered', icon: 'home' },
-                ].map((st, idx) => {
-                  const isDone = liveStepIndex >= idx;
-                  const isCurrent = liveStepIndex === idx;
-                  return (
-                    <React.Fragment key={st.key}>
-                      <View style={{ alignItems: 'center' }}>
-                        <View
-                          style={[
-                            styles.stepperDot,
-                            {
-                              backgroundColor: isDone ? theme.neonGreen : (isDarkMode ? '#1E2D22' : '#E2E8F0'),
-                              borderColor: isCurrent ? '#FFFFFF' : 'transparent',
-                              borderWidth: isCurrent ? 2 : 0,
-                            },
-                          ]}
-                        >
+                    let statusLabel = isTamil ? 'பதிவானது' : 'Placed';
+                    let statusDotColor = '#F59E0B';
+                    let statusEta = isTamil ? 'தயாராகிறது' : 'Preparing';
+                    if (ordStatus.includes('deliver')) {
+                      statusLabel = isTamil ? 'முடிந்தது' : 'Delivered';
+                      statusDotColor = theme.neonGreen;
+                      statusEta = isTamil ? 'சேர்ந்தது' : 'Arrived';
+                    } else if (ordStatus.includes('out') || ordStatus.includes('way') || ordStatus.includes('transit')) {
+                      statusLabel = isTamil ? 'வழியில்' : 'On the way';
+                      statusDotColor = theme.neonGreen;
+                      statusEta = isOrdGlobal ? (isTamil ? 'கூரியர்' : 'In Transit') : (isTamil ? '~14 நிமி' : '~14 mins');
+                    } else if (ordStatus.includes('pack') || ordStatus.includes('ready')) {
+                      statusLabel = isTamil ? 'தயார்' : 'Packing';
+                      statusDotColor = '#38BDF8';
+                      statusEta = isTamil ? 'பேக்கிங்' : '~15 mins';
+                    }
+
+                    return (
+                      <TouchableOpacity
+                        key={ordId || idx}
+                        style={[
+                          styles.multiOrderCard,
+                          {
+                            backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                            borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+                          },
+                        ]}
+                        activeOpacity={0.82}
+                        onPress={() => {
+                          handleCollapseTracking();
+                          if (onTrackOrder) {
+                            onTrackOrder(ordId);
+                          } else if (navigation) {
+                            navigation.navigate('TrackOrderScreen', {
+                              orderId: ordId,
+                              order: typeof ord === 'object' && ord !== null ? ord : undefined,
+                            });
+                          }
+                        }}
+                      >
+                        {/* Store Icon */}
+                        <View style={[styles.multiStoreIconWrap, { backgroundColor: isDarkMode ? '#1E2D22' : '#E6F4EA' }]}>
                           <Ionicons
-                            name={st.icon}
-                            size={10}
-                            color={isDone ? '#050906' : (isDarkMode ? '#64748B' : '#94A3B8')}
+                            name={isOrdGlobal ? 'cube' : 'bicycle'}
+                            size={14}
+                            color={theme.neonGreen}
                           />
                         </View>
-                        <Text
-                          style={[
-                            styles.stepLabel,
-                            {
-                              color: isCurrent
-                                ? theme.neonGreen
-                                : isDone
-                                ? (isDarkMode ? '#FFFFFF' : '#0F172A')
-                                : (isDarkMode ? '#64748B' : '#94A3B8'),
-                              fontWeight: isCurrent ? '800' : '600',
-                            },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {st.label}
-                        </Text>
-                      </View>
-                      {idx < 3 && (
-                        <View
-                          style={[
-                            styles.stepLine,
-                            {
-                              backgroundColor: liveStepIndex > idx ? theme.neonGreen : (isDarkMode ? '#1E2D22' : '#E2E8F0'),
-                            },
-                          ]}
-                        />
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </View>
+
+                        {/* Details */}
+                        <View style={styles.multiOrderInfo}>
+                          <View style={styles.multiOrderTopRow}>
+                            <Text style={[styles.multiStoreName, { color: isDarkMode ? '#FFFFFF' : '#0F172A' }]} numberOfLines={1}>
+                              {ordShop}
+                            </Text>
+                            {totalAmount ? (
+                              <Text style={[styles.multiOrderPrice, { color: theme.neonGreen }]}>
+                                ₹{Math.round(totalAmount)}
+                              </Text>
+                            ) : null}
+                          </View>
+
+                          <View style={styles.multiOrderBottomRow}>
+                            <View style={styles.multiStatusBadge}>
+                              <View style={[styles.miniStatusDot, { backgroundColor: statusDotColor }]} />
+                              <Text style={[styles.multiStatusText, { color: isDarkMode ? '#CBD5E1' : '#475569' }]} numberOfLines={1}>
+                                {statusLabel} • {statusEta}
+                              </Text>
+                            </View>
+                            <Text style={[styles.multiOrderSubMeta, { color: isDarkMode ? '#64748B' : '#94A3B8' }]}>
+                              #{String(ordId).slice(-6)} • {itemCount} {isTamil ? 'பொருட்கள்' : 'items'}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Track CTA */}
+                        <View style={[styles.multiTrackBtn, { backgroundColor: theme.neonGreen }]}>
+                          <Text style={styles.multiTrackBtnText}>
+                            {isTamil ? 'வரைபடம்' : 'Track'}
+                          </Text>
+                          <Ionicons name="navigate" size={10} color="#050906" style={{ marginLeft: 3 }} />
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              ) : (
+                <React.Fragment>
+                  {/* Middle Row: Large ETA & Store Info + Track Live CTA */}
+                  <View style={styles.expandedHeroRow}>
+                    <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                      <Text style={[styles.expandedEtaHeadline, { color: isDarkMode ? '#FFFFFF' : '#0F172A' }]} numberOfLines={1}>
+                        {liveEtaCountdownText} • {liveStatusBadgeText}
+                      </Text>
+                      <Text style={[styles.expandedStoreSub, { color: isDarkMode ? '#94A3B8' : '#64748B' }]} numberOfLines={1}>
+                        {lastOrderShopName} • {lastOrderItemCount} {isTamil ? 'பொருட்கள்' : 'items'}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.expandedTrackBtn, { backgroundColor: theme.neonGreen }]}
+                      onPress={() => {
+                        handleCollapseTracking();
+                        const targetOrderId = lastOrder?.orderId || lastOrder?.id || (typeof lastOrder === 'string' ? lastOrder : '');
+                        if (onTrackOrder) {
+                          onTrackOrder(targetOrderId);
+                        } else if (navigation) {
+                          navigation.navigate('TrackOrderScreen', {
+                            orderId: targetOrderId,
+                            order: typeof lastOrder === 'object' && lastOrder !== null ? lastOrder : undefined,
+                          });
+                        }
+                      }}
+                      activeOpacity={0.82}
+                    >
+                      <Text style={styles.expandedTrackBtnText}>
+                        {isTamil ? 'வரைபடம்' : 'Track Live'}
+                      </Text>
+                      <Ionicons name="navigate" size={12} color="#050906" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Bottom Row: 4-Step Progress Stepper */}
+                  <View style={styles.expandedStepperRow}>
+                    {[
+                      { key: 'placed', label: isTamil ? 'பதிவு' : 'Placed', icon: 'checkmark-circle' },
+                      { key: 'packed', label: isTamil ? 'தயார்' : 'Packed', icon: 'cube' },
+                      { key: 'transit', label: isTamil ? 'வழியில்' : 'On the Way', icon: 'bicycle' },
+                      { key: 'delivered', label: isTamil ? 'டெலிவரி' : 'Delivered', icon: 'home' },
+                    ].map((st, idx) => {
+                      const isDone = liveStepIndex >= idx;
+                      const isCurrent = liveStepIndex === idx;
+                      return (
+                        <React.Fragment key={st.key}>
+                          <View style={{ alignItems: 'center' }}>
+                            <View
+                              style={[
+                                styles.stepperDot,
+                                {
+                                  backgroundColor: isDone ? theme.neonGreen : (isDarkMode ? '#1E2D22' : '#E2E8F0'),
+                                  borderColor: isCurrent ? '#FFFFFF' : 'transparent',
+                                  borderWidth: isCurrent ? 2 : 0,
+                                },
+                              ]}
+                            >
+                              <Ionicons
+                                name={st.icon}
+                                size={10}
+                                color={isDone ? '#050906' : (isDarkMode ? '#64748B' : '#94A3B8')}
+                              />
+                            </View>
+                            <Text
+                              style={[
+                                styles.stepLabel,
+                                {
+                                  color: isCurrent
+                                    ? theme.neonGreen
+                                    : isDone
+                                    ? (isDarkMode ? '#FFFFFF' : '#0F172A')
+                                    : (isDarkMode ? '#64748B' : '#94A3B8'),
+                                  fontWeight: isCurrent ? '800' : '600',
+                                },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {st.label}
+                            </Text>
+                          </View>
+                          {idx < 3 && (
+                            <View
+                              style={[
+                                styles.stepLine,
+                                {
+                                  backgroundColor: liveStepIndex > idx ? theme.neonGreen : (isDarkMode ? '#1E2D22' : '#E2E8F0'),
+                                },
+                              ]}
+                            />
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </View>
+                </React.Fragment>
+              )}
             </Animated.View>
           </Animated.View>
         ) : null}
@@ -2805,6 +2964,88 @@ const styles = StyleSheet.create({
     height: 2,
     marginBottom: 10,
     marginHorizontal: -2,
+  },
+  multiOrdersScroll: {
+    flex: 1,
+    marginTop: 8,
+  },
+  multiOrdersScrollContent: {
+    paddingBottom: 4,
+    gap: 8,
+  },
+  multiOrderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  multiStoreIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 9,
+  },
+  multiOrderInfo: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 8,
+  },
+  multiOrderTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 3,
+  },
+  multiStoreName: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    flex: 1,
+    marginRight: 6,
+  },
+  multiOrderPrice: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  multiOrderBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  multiStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    flexShrink: 1,
+    marginRight: 6,
+  },
+  miniStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  multiStatusText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  multiOrderSubMeta: {
+    fontSize: 10.5,
+    fontWeight: '500',
+  },
+  multiTrackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  multiTrackBtnText: {
+    color: '#050906',
+    fontSize: 11,
+    fontWeight: '800',
   },
   liveTrackingIconWrap: {
     width: 18,
