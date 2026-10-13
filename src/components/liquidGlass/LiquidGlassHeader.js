@@ -24,10 +24,11 @@ import { triggerHaptic } from './safeHaptics';
 import { DeliveryLocationFlowModal } from './AddressManagementModals';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-const ROW_PADDING = 10;
+const ROW_PADDING = 14;
 const ROW_GAP = 8;
 const FULL_CARD_WIDTH = screenWidth - (ROW_PADDING * 2);
 const COMPACT_PILL_WIDTH = (FULL_CARD_WIDTH - ROW_GAP) / 2;
+const DELTA_X = (COMPACT_PILL_WIDTH + ROW_GAP) / 2;
 
 export const LiquidGlassHeader = ({
   userAddress = {},
@@ -328,6 +329,12 @@ export const LiquidGlassHeader = ({
         extrapolate: 'clamp',
       })
     : 1;
+
+  const trackingTranslateX = trackingMorphAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [DELTA_X, 0],
+    extrapolate: 'clamp',
+  });
 
   const trackingWidth = trackingMorphAnim.interpolate({
     inputRange: [0, 1],
@@ -1048,7 +1055,7 @@ export const LiquidGlassHeader = ({
         {/* Categories & Integrated Filters Pill */}
         <Animated.View
           style={[
-            styles.twinPillWrap,
+            styles.categoriesPillWrap,
             {
               width: isOrderActive ? COMPACT_PILL_WIDTH : FULL_CARD_WIDTH,
               opacity: categoriesOpacity,
@@ -1123,6 +1130,7 @@ export const LiquidGlassHeader = ({
                 borderRadius: trackingBorderRadius,
                 backgroundColor: trackingBgColor,
                 borderColor: trackingBorderColor,
+                transform: [{ translateX: trackingTranslateX }],
               },
             ]}
           >
@@ -2605,23 +2613,28 @@ const styles = StyleSheet.create({
   },
   filterBarContainer: {
     position: 'relative',
+    width: '100%',
     height: 38,
     marginTop: 5,
-    paddingHorizontal: 14,
     zIndex: 50,
   },
   trackingBackdrop: {
     position: 'absolute',
     top: -100,
-    left: -20,
-    right: -20,
+    left: 0,
+    right: 0,
     bottom: -800,
     zIndex: 80,
   },
-  twinPillWrap: {
+  categoriesPillWrap: {
+    position: 'absolute',
+    left: 14,
+    top: 0,
+    height: 38,
     overflow: 'hidden',
   },
   matchingGlassPill: {
+    width: '100%',
     height: 38,
     borderRadius: 19,
     borderWidth: 1.2,
@@ -2663,8 +2676,8 @@ const styles = StyleSheet.create({
   },
   trackingMorphCard: {
     position: 'absolute',
-    right: 14,
     top: 0,
+    alignSelf: 'center',
     zIndex: 100,
     borderWidth: 1.2,
     shadowColor: '#10B981',
