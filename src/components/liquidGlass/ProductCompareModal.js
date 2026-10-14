@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { TEXTURED_DARK, TEXTURED_LIGHT } from './theme';
+import { calculateEffectivePricing } from '../../utils/pricing';
 
 export const ProductCompareModal = ({
   visible = false,
@@ -28,9 +29,10 @@ export const ProductCompareModal = ({
   const isGlobal = marketMode === 'global';
   const theme = isDarkMode ? TEXTURED_DARK : TEXTURED_LIGHT;
 
-  const price = Number(product.price || product.salesPrice || 0);
-  const mrp = Number(product.mrp || product.regularPrice || Math.round(price * 1.15));
-  const savings = Math.max(0, mrp - price);
+  const pricing = calculateEffectivePricing(product);
+  const price = pricing.price;
+  const mrp = pricing.originalPrice;
+  const savings = pricing.savings;
   const storePrices = product.storePrices || [
     {
       shopId: product.shopId,

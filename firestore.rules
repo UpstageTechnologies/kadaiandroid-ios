@@ -54,6 +54,8 @@ service cloud.firestore {
     //      - /global_inventory/{itemId}: Global shop inventory items
     //
     // 6. Master/Reference Collections:
+    //      - /categories/{categoryId}: Parent category metadata (read-only for signed-in users)
+    //      - /categories/{categoryId}/subcategories/{subcategoryId}: Nested category metadata
     //      - /products/{productId}: Central product catalog (read-only for signed-in users)
     //      - /location_master/{document=**}: Country/state metadata (read-only for signed-in users)
     //
@@ -199,19 +201,35 @@ service cloud.firestore {
       }
     }
 
-    // 4. Products Catalog (Read-only for signed-in users)
+    // 4. Category Catalog (read-only for signed-in users)
+    match /categories/{categoryId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+
+      match /subcategories/{subcategoryId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
+    }
+
+    // 5. Products Catalog (Read-only for signed-in users)
     match /products/{productId} {
       allow read: if isSignedIn();
       allow write: if false;
     }
 
-    // 5. Location Reference Master (Read-only for address lookup during registration/selection)
+    // 6. Location Reference Master & States Hierarchy (Read-only for address lookup during registration/selection)
     match /location_master/{document=**} {
       allow read: if isSignedIn();
       allow write: if false;
     }
 
-    // 6. Default Deny Catch-All
+    match /states/{document=**} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // 7. Default Deny Catch-All
     match /{document=**} {
       allow read, write: if false;
     }

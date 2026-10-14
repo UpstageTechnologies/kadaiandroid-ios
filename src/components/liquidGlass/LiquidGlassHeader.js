@@ -46,6 +46,10 @@ export const LiquidGlassHeader = ({
   selectedCategory = null,
   onSelectCategory,
   categories = [],
+  categoriesLoading = false,
+  categoriesError = null,
+  onRetryCategories,
+  onLoadSubcategories,
   language = 'en',
   isDarkMode = true,
   navigation,
@@ -89,6 +93,80 @@ export const LiquidGlassHeader = ({
 
   // Categories & Integrated Filters tab state: 'categories' | 'sort' | 'type' | 'price'
   const [categoriesTab, setCategoriesTab] = useState('categories');
+  const [activeCategoryParent, setActiveCategoryParent] = useState(null);
+  const [subcategories, setSubcategories] = useState([]);
+  const [subcategoriesLoading, setSubcategoriesLoading] = useState(false);
+  const [subcategoriesError, setSubcategoriesError] = useState(null);
+  const categoryRequestId = useRef(0);
+
+  useEffect(() => {
+    if (activePanel !== 'categories') {
+      categoryRequestId.current += 1;
+      setActiveCategoryParent(null);
+      setSubcategories([]);
+      setSubcategoriesLoading(false);
+      setSubcategoriesError(null);
+    }
+  }, [activePanel]);
+
+  useEffect(() => () => {
+    categoryRequestId.current += 1;
+  }, []);
+
+  const openCategory = async category => {
+    const requestId = categoryRequestId.current + 1;
+    categoryRequestId.current = requestId;
+
+    if (!onLoadSubcategories) {
+      selectParentCategory(category);
+      return;
+    }
+
+    setActiveCategoryParent(category);
+    setSubcategories([]);
+    setSubcategoriesError(null);
+    setSubcategoriesLoading(true);
+
+    try {
+      const children = await onLoadSubcategories(category.id);
+      if (categoryRequestId.current === requestId) {
+        const validChildren = Array.isArray(children) ? children : [];
+        setSubcategories(validChildren);
+        if (validChildren.length === 0) {
+          // If category has no subcategories in Firestore, directly select this category
+          selectParentCategory(category);
+        }
+      }
+    } catch (error) {
+      if (categoryRequestId.current === requestId) {
+        setSubcategoriesError(error);
+        selectParentCategory(category);
+      }
+    } finally {
+      if (categoryRequestId.current === requestId) setSubcategoriesLoading(false);
+    }
+  };
+
+  const returnToCategories = () => {
+    categoryRequestId.current += 1;
+    setActiveCategoryParent(null);
+    setSubcategories([]);
+    setSubcategoriesLoading(false);
+    setSubcategoriesError(null);
+  };
+
+  const selectParentCategory = category => {
+    const children = category.id === activeCategoryParent?.id ? subcategories : [];
+    if (onSelectCategory) {
+      onSelectCategory({
+        ...category,
+        level: 'parent',
+        childCategoryIds: children.map(child => child.id),
+        childCategoryNames: children.map(child => child.name),
+      });
+    }
+    handleClosePanel();
+  };
 
   // Checkout form states
   const [checkoutPaymentMethod, setCheckoutPaymentMethod] = useState('UPI');
@@ -1271,7 +1349,9 @@ export const LiquidGlassHeader = ({
                 numberOfLines={1}
               >
                 {selectedCategory
-                  ? (isTamil && selectedCategory.nameTa ? selectedCategory.nameTa : (selectedCategory.shortName || selectedCategory.name))
+                  ? (selectedCategory.level === 'subcategory' && selectedCategory.parentName
+                    ? `${isTamil && selectedCategory.parentNameTa ? selectedCategory.parentNameTa : selectedCategory.parentName} › ${isTamil && selectedCategory.nameTa ? selectedCategory.nameTa : selectedCategory.name}`
+                    : (isTamil && selectedCategory.nameTa ? selectedCategory.nameTa : (selectedCategory.shortName || selectedCategory.name)))
                   : (isTamil ? 'பிரிவுகள் & வடிகட்டி' : 'Categories & Filters')}
               </Text>
 
@@ -2200,41 +2280,211 @@ export const LiquidGlassHeader = ({
                 })}
               </View>
 
+              {categoriesTab === 'categories' && activeCategoryParent && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2, paddingVertical: 7 }}>
+                  <TouchableOpacity
+                    onPress={returnToCategories}
+                    disabled={subcategoriesLoading}
+                    style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingRight: 8 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={isTamil ? 'பிரிவுகளுக்குத் திரும்பு' : 'Back to categories'}
+                  >
+                    <Ionicons name="chevron-back" size={15} color={theme.neonGreen} />
+                    <Text style={{ color: theme.neonGreen, fontSize: 12, fontWeight: '700' }}>
+                      {isTamil ? 'பிரிவுகள்' : 'Categories'}
+                    </Text>
+                  </TouchableOpacity>
+                  <Ionicons name="chevron-forward" size={12} color={isDarkMode ? '#64748B' : '#94A3B8'} />
+                  <Text style={{ color: theme.textWhite, fontSize: 12, fontWeight: '700', marginLeft: 5 }} numberOfLines={1}>
+                    {isTamil && activeCategoryParent.nameTa ? activeCategoryParent.nameTa : activeCategoryParent.name}
+                  </Text>
+                </View>
+              )}
+
               {/* SUBTAB 1: CATEGORIES GRID */}
               {categoriesTab === 'categories' && (
                 <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 10 }}>
                   <View style={styles.categoriesGrid}>
-                    <TouchableOpacity
-                      style={[
-                        styles.categoryCard,
-                        {
-                          backgroundColor: isDarkMode ? '#132018' : '#F1F5F9',
-                          borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-                        },
-                        selectedCategory === null && [
-                          styles.categoryCardActive,
-                          { borderColor: theme.neonGreen, backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.12)' : '#DCFCE7' },
-                        ],
-                      ]}
-                      onPress={() => {
-                        if (onSelectCategory) onSelectCategory(null);
-                        handleClosePanel();
-                      }}
-                    >
-                      <Ionicons name="apps" size={20} color={theme.neonGreen} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.categoryCardName, { color: theme.textWhite }]} numberOfLines={1}>
-                          {isTamil ? 'அனைத்தும்' : 'All Categories'}
+                    {!activeCategoryParent && (
+                      <TouchableOpacity
+                        style={[
+                          styles.categoryCard,
+                          {
+                            backgroundColor: isDarkMode ? '#132018' : '#F1F5F9',
+                            borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                          },
+                          !selectedCategory && [
+                            styles.categoryCardActive,
+                            { borderColor: theme.neonGreen, backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.12)' : '#DCFCE7' },
+                          ],
+                        ]}
+                        onPress={() => {
+                          if (onSelectCategory) onSelectCategory(null);
+                          handleClosePanel();
+                        }}
+                        accessibilityRole="button"
+                      >
+                        <Ionicons name="apps" size={20} color={theme.neonGreen} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.categoryCardName, { color: theme.textWhite }]} numberOfLines={1}>
+                            {isTamil ? 'அனைத்தும்' : 'All Categories'}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    )}
+
+                    {!activeCategoryParent && categoriesLoading && (
+                      <View style={{ width: '100%', alignItems: 'center', paddingVertical: 20 }}>
+                        <ActivityIndicator color={theme.neonGreen} />
+                        <Text style={{ color: isDarkMode ? '#94A3B8' : '#64748B', fontSize: 12, marginTop: 8 }}>
+                          {isTamil ? 'பிரிவுகள் ஏற்றப்படுகின்றன…' : 'Loading categories…'}
                         </Text>
                       </View>
-                    </TouchableOpacity>
+                    )}
 
-                    {categories.map(cat => {
-                      const isSelected = selectedCategory?.id === cat.id;
-                      const displayName = isTamil && cat.nameTa ? cat.nameTa : (cat.shortName || cat.name);
+                    {!activeCategoryParent && categoriesError && !categoriesLoading && (
+                      <View style={{ width: '100%', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 12 }}>
+                        <Text style={{ color: isDarkMode ? '#FCA5A5' : '#B91C1C', fontSize: 12, textAlign: 'center' }}>
+                          {categoriesError.code === 'permission-denied'
+                            ? (isTamil ? 'பிரிவுகளைப் படிக்க அனுமதி இல்லை. உள்நுழைந்து மீண்டும் முயற்சிக்கவும்.' : 'You do not have permission to read categories. Sign in and try again.')
+                            : (isTamil ? 'பிரிவுகளை ஏற்ற முடியவில்லை. இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.' : 'Could not load categories. Check your connection and try again.')}
+                        </Text>
+                        <TouchableOpacity onPress={onRetryCategories} style={{ padding: 8 }} accessibilityRole="button">
+                          <Text style={{ color: theme.neonGreen, fontSize: 12, fontWeight: '800' }}>
+                            {isTamil ? 'மீண்டும் முயற்சி' : 'Retry'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    {!activeCategoryParent && !categoriesLoading && !categoriesError && categories.length === 0 && (
+                      <Text style={{ width: '100%', color: isDarkMode ? '#94A3B8' : '#64748B', fontSize: 12, textAlign: 'center', padding: 16 }}>
+                        {isTamil ? 'பிரிவுகள் எதுவும் இல்லை.' : 'No categories are available.'}
+                      </Text>
+                    )}
+
+                    {!activeCategoryParent && !categoriesError && categories.map(category => {
+                      const isSelected =
+                        selectedCategory?.id === category.id ||
+                        selectedCategory?.parentId === category.id;
+                      const displayName = isTamil && category.nameTa ? category.nameTa : category.name;
+                      const imageUri = category.image || (/^https?:\/\//i.test(category.icon || '') ? category.icon : null);
+
                       return (
                         <TouchableOpacity
-                          key={cat.id}
+                          key={category.id}
+                          style={[
+                            styles.categoryCard,
+                            {
+                              backgroundColor: isDarkMode ? '#132018' : '#F1F5F9',
+                              borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                            },
+                            isSelected && [
+                              styles.categoryCardActive,
+                              { borderColor: theme.neonGreen, backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.12)' : '#DCFCE7' },
+                            ],
+                          ]}
+                          onPress={() => openCategory(category)}
+                          disabled={subcategoriesLoading}
+                          accessibilityRole="button"
+                          accessibilityLabel={isTamil && category.nameTa ? category.nameTa : category.name}
+                        >
+                          {imageUri ? (
+                            <Image source={{ uri: imageUri }} style={{ width: 21, height: 21, borderRadius: 6 }} />
+                          ) : (
+                            <Ionicons
+                              name={category.icon || 'pricetag-outline'}
+                              size={19}
+                              color={isSelected ? theme.neonGreen : (isDarkMode ? '#34D399' : '#15803D')}
+                            />
+                          )}
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.categoryCardName, { color: theme.textWhite }]} numberOfLines={1}>
+                              {displayName}
+                            </Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={14} color={isDarkMode ? '#64748B' : '#94A3B8'} />
+                        </TouchableOpacity>
+                      );
+                    })}
+
+                    {activeCategoryParent && subcategoriesLoading && (
+                      <View style={{ width: '100%', alignItems: 'center', paddingVertical: 20 }}>
+                        <ActivityIndicator color={theme.neonGreen} />
+                        <Text style={{ color: isDarkMode ? '#94A3B8' : '#64748B', fontSize: 12, marginTop: 8 }}>
+                          {isTamil ? 'துணைப் பிரிவுகள் ஏற்றப்படுகின்றன…' : 'Loading subcategories…'}
+                        </Text>
+                      </View>
+                    )}
+
+                    {activeCategoryParent && subcategoriesError && !subcategoriesLoading && (
+                      <View style={{ width: '100%', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 12 }}>
+                        <Text style={{ color: isDarkMode ? '#FCA5A5' : '#B91C1C', fontSize: 12, textAlign: 'center' }}>
+                          {subcategoriesError.code === 'permission-denied'
+                            ? (isTamil ? 'துணைப் பிரிவுகளைப் படிக்க அனுமதி இல்லை.' : 'You do not have permission to read subcategories.')
+                            : (isTamil ? 'துணைப் பிரிவுகளை ஏற்ற முடியவில்லை.' : 'Could not load subcategories.')}
+                        </Text>
+                        <TouchableOpacity onPress={() => openCategory(activeCategoryParent)} style={{ padding: 8 }} accessibilityRole="button">
+                          <Text style={{ color: theme.neonGreen, fontSize: 12, fontWeight: '800' }}>
+                            {isTamil ? 'மீண்டும் முயற்சி' : 'Retry'}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => selectParentCategory(activeCategoryParent)} style={{ padding: 8 }} accessibilityRole="button">
+                          <Text style={{ color: theme.neonGreen, fontSize: 12, fontWeight: '800' }}>
+                            {isTamil ? `${activeCategoryParent.nameTa || activeCategoryParent.name} தேர்வு` : `Select ${activeCategoryParent.name}`}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    {activeCategoryParent && !subcategoriesLoading && !subcategoriesError && subcategories.length === 0 && (
+                      <View style={{ width: '100%', alignItems: 'center', paddingVertical: 8 }}>
+                        <Text style={{ color: isDarkMode ? '#94A3B8' : '#64748B', fontSize: 12, textAlign: 'center', padding: 8 }}>
+                          {isTamil ? 'இந்தப் பிரிவில் துணைப் பிரிவுகள் இல்லை.' : 'This category has no subcategories.'}
+                        </Text>
+                        <TouchableOpacity onPress={() => selectParentCategory(activeCategoryParent)} style={{ padding: 8 }} accessibilityRole="button">
+                          <Text style={{ color: theme.neonGreen, fontSize: 12, fontWeight: '800' }}>
+                            {isTamil ? `${activeCategoryParent.nameTa || activeCategoryParent.name} தேர்வு` : `Select ${activeCategoryParent.name}`}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    {activeCategoryParent && !subcategoriesLoading && !subcategoriesError && subcategories.length > 0 && (
+                      <TouchableOpacity
+                        style={[
+                          styles.categoryCard,
+                          {
+                            backgroundColor: isDarkMode ? '#132018' : '#F1F5F9',
+                            borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                          },
+                          selectedCategory?.id === activeCategoryParent.id && selectedCategory?.level !== 'subcategory' && [
+                            styles.categoryCardActive,
+                            { borderColor: theme.neonGreen, backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.12)' : '#DCFCE7' },
+                          ],
+                        ]}
+                        onPress={() => selectParentCategory(activeCategoryParent)}
+                        accessibilityRole="button"
+                      >
+                        <Ionicons name="apps" size={19} color={theme.neonGreen} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.categoryCardName, { color: theme.textWhite }]} numberOfLines={1}>
+                            {isTamil ? `அனைத்து ${activeCategoryParent.nameTa || activeCategoryParent.name}` : `All ${activeCategoryParent.name}`}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    )}
+
+                    {activeCategoryParent && !subcategoriesLoading && !subcategoriesError && subcategories.map(subcategory => {
+                      const isSelected =
+                        selectedCategory?.id === subcategory.id &&
+                        selectedCategory?.parentId === activeCategoryParent.id;
+                      const displayName = isTamil && subcategory.nameTa ? subcategory.nameTa : subcategory.name;
+                      const imageUri = subcategory.image || (/^https?:\/\//i.test(subcategory.icon || '') ? subcategory.icon : null);
+
+                      return (
+                        <TouchableOpacity
+                          key={`${activeCategoryParent.id}:${subcategory.id}`}
                           style={[
                             styles.categoryCard,
                             {
@@ -2247,42 +2497,26 @@ export const LiquidGlassHeader = ({
                             ],
                           ]}
                           onPress={() => {
-                            if (onSelectCategory) onSelectCategory(isSelected ? null : cat);
+                            if (onSelectCategory) onSelectCategory(subcategory);
                             handleClosePanel();
                           }}
+                          accessibilityRole="button"
+                          accessibilityLabel={displayName}
                         >
-                          <Ionicons
-                            name={cat.icon || 'pricetag-outline'}
-                            size={19}
-                            color={isSelected ? theme.neonGreen : (isDarkMode ? '#34D399' : '#15803D')}
-                          />
+                          {imageUri ? (
+                            <Image source={{ uri: imageUri }} style={{ width: 21, height: 21, borderRadius: 6 }} />
+                          ) : (
+                            <Ionicons
+                              name={subcategory.icon || 'pricetag-outline'}
+                              size={19}
+                              color={isSelected ? theme.neonGreen : (isDarkMode ? '#34D399' : '#15803D')}
+                            />
+                          )}
                           <View style={{ flex: 1 }}>
                             <Text style={[styles.categoryCardName, { color: theme.textWhite }]} numberOfLines={1}>
                               {displayName}
                             </Text>
                           </View>
-                          {cat.count !== undefined && cat.count > 0 && (
-                            <View
-                              style={{
-                                backgroundColor: isSelected
-                                  ? (isDarkMode ? 'rgba(34, 197, 94, 0.25)' : '#BBF7D0')
-                                  : (isDarkMode ? 'rgba(255,255,255,0.08)' : '#E2E8F0'),
-                                paddingHorizontal: 6,
-                                paddingVertical: 1,
-                                borderRadius: 8,
-                              }}
-                            >
-                              <Text
-                                style={{
-                                  fontSize: 10,
-                                  fontWeight: '700',
-                                  color: isSelected ? theme.neonGreen : (isDarkMode ? '#94A3B8' : '#64748B'),
-                                }}
-                              >
-                                {cat.count}
-                              </Text>
-                            </View>
-                          )}
                         </TouchableOpacity>
                       );
                     })}

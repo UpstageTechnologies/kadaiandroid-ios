@@ -10,36 +10,7 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { TEXTURED_DARK, TEXTURED_LIGHT } from './theme';
 
-export const DEFAULT_FALLBACK_STORES = [
-  {
-    id: 'store_raj',
-    name: 'RajStores',
-    shopName: 'RajStores',
-    image: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=300&q=80',
-    distanceKm: '1.2',
-  },
-  {
-    id: 'store_thanga',
-    name: 'Thanga Thangam',
-    shopName: 'Thanga Thangam',
-    image: 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=300&q=80',
-    distanceKm: '0.7',
-  },
-  {
-    id: 'store_annai',
-    name: 'Annai Maligai',
-    shopName: 'Annai Maligai',
-    image: 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?auto=format&fit=crop&w=300&q=80',
-    distanceKm: '1.4',
-  },
-  {
-    id: 'store_murugan',
-    name: 'Sri Murugan',
-    shopName: 'Sri Murugan',
-    image: 'https://images.unsplash.com/photo-1588964895597-cfccd6e2dbf9?auto=format&fit=crop&w=300&q=80',
-    distanceKm: '1.8',
-  },
-];
+export const DEFAULT_FALLBACK_STORES = [];
 
 export const DEFAULT_RAIL_CATEGORIES = [
   {
@@ -170,7 +141,7 @@ export const StoreSidebarRail = ({
   const isGlobal = marketMode === 'global';
   const theme = isDarkMode ? TEXTURED_DARK : TEXTURED_LIGHT;
 
-  const displayShops = shops && shops.length > 0 ? shops : DEFAULT_FALLBACK_STORES;
+  const displayShops = shops || [];
   const isAllActive = !selectedShop;
 
   const handleSelectAll = () => {
@@ -299,12 +270,6 @@ export const StoreSidebarRail = ({
               >
                 {displayName}
               </Text>
-
-              {shop.distanceKm !== undefined && (
-                <Text style={[styles.subInfoLabel, { color: isDarkMode ? '#34D399' : '#16A34A' }]}>
-                  {isGlobal ? 'Pan-India' : `${shop.distanceKm} km`}
-                </Text>
-              )}
             </TouchableOpacity>
           );
         })}

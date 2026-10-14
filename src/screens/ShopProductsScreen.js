@@ -24,6 +24,7 @@ import {
 } from '@react-native-firebase/firestore';
 
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { calculateEffectivePricing } from '../utils/pricing';
 
 const { width } = Dimensions.get('window');
 
@@ -78,7 +79,8 @@ const ShopProductsScreen = ({ navigation, route }) => {
       inventoryRef,
       snapshot => {
         const items = snapshot.docs.map(doc => {
-          const data = doc.data();
+          const data = doc.data() || {};
+          const pricing = calculateEffectivePricing(data);
 
           return {
             id: doc.id,
@@ -86,17 +88,29 @@ const ShopProductsScreen = ({ navigation, route }) => {
             shopId,
             shopName,
             marketType: marketMode,
+            marketMode,
+            inventoryCollection: targetCollection,
 
             name:
               data.itemName ||
               data.name ||
               'Product',
 
-            price: Number(
-              data.salesPrice ||
-              data.price ||
-              0
-            ),
+            brand: data.brand || data.brandName || '',
+            subName: data.subName || data.productSubName || data.modelName || data.variant || '',
+            model: data.model || data.modelNumber || data.modelNo || '',
+            description: data.description || data.productDescription || data.details || '',
+
+            price: pricing.price,
+            salesPrice: pricing.price,
+            originalPrice: pricing.originalPrice,
+            originalSalesPrice: pricing.originalPrice,
+            mrp: pricing.originalPrice > 0 ? pricing.originalPrice : (Number(data.mrp) || pricing.price),
+            hasDiscount: pricing.hasDiscount,
+            discountPercent: pricing.discountPercent,
+            discountBadge: pricing.discountBadge,
+            discountType: pricing.discountType,
+            discountValue: data.discountValue ?? 0,
 
             quantity: Number(
               data.quantity || 0
@@ -104,15 +118,26 @@ const ShopProductsScreen = ({ navigation, route }) => {
 
             category:
               data.category ||
+              data.categoryName ||
               'General',
+
+            subcategory:
+              data.subcategory ||
+              data.subCategory ||
+              '',
 
             img:
               data.image ||
               data.img ||
+              data.imageUrl ||
               'https://picsum.photos/500',
+
+            images: Array.isArray(data.images) && data.images.length ? data.images : undefined,
 
             itemNo:
               data.itemNo ||
+              data.sku ||
+              data.productCode ||
               '',
 
             unit:
@@ -408,76 +433,105 @@ const ShopProductsScreen = ({ navigation, route }) => {
     return (
       <View style={styles.productCard}>
 
-        {/* IMAGE */}
+        <TouchableOpacity
+          activeOpacity={0.88}
+          onPress={() =>
+            navigation.navigate('ProductDetailsScreen', {
+              product: item,
+              marketMode: item.marketType || marketMode,
+            })
+          }
+        >
+          {/* IMAGE */}
 
-        <View style={styles.imageWrapper}>
+          <View style={styles.imageWrapper}>
 
-          <Image
-            source={{
-              uri: item.img,
-            }}
-            style={styles.productImage}
-            resizeMode="contain"
-          />
+            <Image
+              source={{
+                uri: item.img,
+              }}
+              style={styles.productImage}
+              resizeMode="contain"
+            />
 
-          {qty > 0 && (
-            <View style={styles.addedBadge}>
-              <MaterialCommunityIcons
-                name="check"
-                size={13}
-                color="#ffffff"
-              />
-
-              <Text style={styles.addedBadgeText}>
-                Added
-              </Text>
-            </View>
-          )}
-
-        </View>
-
-        {/* PRODUCT INFO */}
-
-        <View style={styles.productInfo}>
-
-          <Text
-            style={styles.productName}
-            numberOfLines={2}
-          >
-            {item.name}
-          </Text>
-
-          <View style={styles.metaRow}>
-
-            <Text
-              style={styles.category}
-              numberOfLines={1}
-            >
-              {item.category}
-            </Text>
-
-            {item.unit ? (
-              <Text
-                style={styles.unit}
-                numberOfLines={1}
-              >
-                {item.unit}
-              </Text>
+            {item.hasDiscount && item.discountBadge ? (
+              <View style={styles.discountBadge}>
+                <Text style={styles.discountBadgeText}>
+                  {item.discountBadge}
+                </Text>
+              </View>
             ) : null}
 
+            {qty > 0 && (
+              <View style={styles.addedBadge}>
+                <MaterialCommunityIcons
+                  name="check"
+                  size={13}
+                  color="#ffffff"
+                />
+
+                <Text style={styles.addedBadgeText}>
+                  Added
+                </Text>
+              </View>
+            )}
+
           </View>
 
-          <View style={styles.priceRow}>
+          {/* PRODUCT INFO */}
 
-            <Text style={styles.price}>
-              ₹{item.price.toFixed(0)}
+          <View style={styles.productInfo}>
+
+            <Text
+              style={styles.productName}
+              numberOfLines={2}
+            >
+              {item.name}
             </Text>
 
-            <Text style={styles.stock}>
-              {item.quantity} left
-            </Text>
+            <View style={styles.metaRow}>
+
+              <Text
+                style={styles.category}
+                numberOfLines={1}
+              >
+                {item.category}
+              </Text>
+
+              {item.unit ? (
+                <Text
+                  style={styles.unit}
+                  numberOfLines={1}
+                >
+                  {item.unit}
+                </Text>
+              ) : null}
+
+            </View>
+
+            <View style={styles.priceRow}>
+
+              <View style={{flexDirection: 'row', alignItems: 'baseline', gap: 4}}>
+                <Text style={styles.price}>
+                  ₹{Number(item.price || 0).toLocaleString('en-IN')}
+                </Text>
+
+                {item.hasDiscount && item.originalPrice > item.price ? (
+                  <Text style={styles.oldPrice}>
+                    ₹{Number(item.originalPrice).toLocaleString('en-IN')}
+                  </Text>
+                ) : null}
+              </View>
+
+              <Text style={styles.stock}>
+                {item.quantity} left
+              </Text>
+
+            </View>
 
           </View>
+
+        </TouchableOpacity>
 
           {/* ADD / QUANTITY */}
 
@@ -553,7 +607,6 @@ const ShopProductsScreen = ({ navigation, route }) => {
 
           )}
 
-        </View>
       </View>
     );
   };
@@ -1198,6 +1251,31 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#078f48',
     letterSpacing: -0.3,
+  },
+
+  oldPrice: {
+    fontSize: 12,
+    color: '#9aa8a0',
+    textDecorationLine: 'line-through',
+    fontWeight: '500',
+  },
+
+  discountBadge: {
+    position: 'absolute',
+    top: 9,
+    right: 9,
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    zIndex: 2,
+  },
+
+  discountBadgeText: {
+    color: '#ffffff',
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
 
   stock: {

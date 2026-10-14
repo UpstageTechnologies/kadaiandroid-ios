@@ -32,6 +32,7 @@ import {
   fetchAvailableStoreLocations,
   forwardGeocodeAddress,
   normalizeAddressPayload,
+  getCoordinatesForAreaOrCity,
 } from '../../services/locationService';
 import { triggerHaptic } from './safeHaptics';
 
@@ -216,6 +217,10 @@ export function DeliveryLocationFlowModal({
   const [customTag, setCustomTag] = useState('');
   const [contactType, setContactType] = useState('myself'); // 'myself' | 'someone'
   const [googleMapsLink, setGoogleMapsLink] = useState('');
+  const [hasPin, setHasPin] = useState(false);
+  const [pinCoords, setPinCoords] = useState(null); // { lat: number, lon: number } | null
+  const previousPinStateRef = useRef({ hasPin: false, pinCoords: null, googleMapsLink: '' });
+  const [currentMapPinCoords, setCurrentMapPinCoords] = useState(null);
   const [isCitySheetOpen, setIsCitySheetOpen] = useState(false);
   const [citySearchQuery, setCitySearchQuery] = useState('');
   const [isAreaSheetOpen, setIsAreaSheetOpen] = useState(false);
@@ -322,7 +327,22 @@ export function DeliveryLocationFlowModal({
           setCustomTag(editingLocation.tag);
         }
       }
-      if (editingLocation.googleMapsLink) setGoogleMapsLink(editingLocation.googleMapsLink);
+      if (editingLocation.hasPin === true || (Number.isFinite(Number(editingLocation.lat)) && Number.isFinite(Number(editingLocation.lon)) && Number(editingLocation.lat) !== 0 && (editingLocation.googleMapsLink || editingLocation.hasPin))) {
+        const latNum = Number(editingLocation.lat);
+        const lonNum = Number(editingLocation.lon);
+        const link = editingLocation.googleMapsLink && String(editingLocation.googleMapsLink).trim()
+          ? String(editingLocation.googleMapsLink).trim()
+          : `https://www.google.com/maps?q=${latNum},${lonNum}`;
+        setHasPin(true);
+        setPinCoords({ lat: latNum, lon: lonNum });
+        setGoogleMapsLink(link);
+      } else if (editingLocation.hasPin === false) {
+        setHasPin(false);
+        setPinCoords(null);
+        setGoogleMapsLink('');
+      } else if (editingLocation.googleMapsLink) {
+        setGoogleMapsLink(editingLocation.googleMapsLink);
+      }
       if (editingLocation.country) {
         const cKey = editingLocation.country.toLowerCase().replace(/[^a-z0-9]/g, '_');
         setSelectedCountryKey(cKey);
@@ -741,7 +761,20 @@ export function DeliveryLocationFlowModal({
     setReceiverName('Customer');
     setReceiverPhone('9442461428');
     setGoogleMapsLink('');
-    setEditingLocation(activeLocation || DEFAULT_USER_LOCATION);
+    setHasPin(false);
+    setPinCoords(null);
+    previousPinStateRef.current = { hasPin: false, pinCoords: null, googleMapsLink: '' };
+    setEditingLocation({
+      street: activeLocation?.street || activeLocation?.area || '',
+      city: activeLocation?.city || 'Sattur',
+      district: activeLocation?.district || 'Virudhunagar',
+      state: activeLocation?.state || 'Tamil Nadu',
+      pincode: activeLocation?.pincode || '626203',
+      lat: null,
+      lon: null,
+      hasPin: false,
+      googleMapsLink: '',
+    });
     setCurrentStep('add_details');
   };
 
@@ -779,13 +812,49 @@ export function DeliveryLocationFlowModal({
     setContactType(cType);
     setReceiverName(item.receiverName || 'Customer');
     setReceiverPhone(item.receiverPhone || '9442461428');
-    setGoogleMapsLink(item.googleMapsLink || '');
 
-    setEditingLocation({
-      ...item,
-      lat: item.lat || DEFAULT_USER_LOCATION.lat,
-      lon: item.lon || DEFAULT_USER_LOCATION.lon,
-    });
+    const itemHasCoords =
+      Number.isFinite(Number(item.lat)) &&
+      Number.isFinite(Number(item.lon)) &&
+      Number(item.lat) !== 0 &&
+      Number(item.lon) !== 0;
+    const itemHasLink = Boolean(item.googleMapsLink && String(item.googleMapsLink).trim());
+    const itemHadPin = Boolean(
+      item.hasPin ||
+      (itemHasCoords && itemHasLink) ||
+      (itemHasCoords && (item.locationSource === 'map' || item.locationSource === 'gps'))
+    );
+
+    if (itemHadPin && itemHasCoords) {
+      const latNum = Number(item.lat);
+      const lonNum = Number(item.lon);
+      const link = itemHasLink
+        ? String(item.googleMapsLink).trim()
+        : `https://www.google.com/maps?q=${latNum},${lonNum}`;
+      setHasPin(true);
+      setPinCoords({ lat: latNum, lon: lonNum });
+      setGoogleMapsLink(link);
+      previousPinStateRef.current = { hasPin: true, pinCoords: { lat: latNum, lon: lonNum }, googleMapsLink: link };
+      setEditingLocation({
+        ...item,
+        lat: latNum,
+        lon: lonNum,
+        hasPin: true,
+        googleMapsLink: link,
+      });
+    } else {
+      setHasPin(false);
+      setPinCoords(null);
+      setGoogleMapsLink('');
+      previousPinStateRef.current = { hasPin: false, pinCoords: null, googleMapsLink: '' };
+      setEditingLocation({
+        ...item,
+        lat: null,
+        lon: null,
+        hasPin: false,
+        googleMapsLink: '',
+      });
+    }
 
     setCurrentStep('add_details');
   };
@@ -860,50 +929,32 @@ export function DeliveryLocationFlowModal({
     try {
       const finalContactType = overrideContactType || contactType;
 
-      // 1. Resolve true target coordinates with high precision
-      let targetLat = Number(editingLocation?.lat);
-      let targetLon = Number(editingLocation?.lon);
+      let saveLat = null;
+      let saveLon = null;
+      let saveLink = '';
+      let saveHasPin = false;
+
+      // Only save latitude, longitude, and googleMapsLink if a valid pin was confirmed
+      if (
+        hasPin &&
+        pinCoords &&
+        Number.isFinite(Number(pinCoords.lat)) &&
+        Number.isFinite(Number(pinCoords.lon)) &&
+        Number(pinCoords.lat) !== 0 &&
+        Number(pinCoords.lon) !== 0
+      ) {
+        saveLat = Number(pinCoords.lat);
+        saveLon = Number(pinCoords.lon);
+        saveLink = (googleMapsLink || '').trim() || `https://www.google.com/maps?q=${saveLat},${saveLon}`;
+        saveHasPin = true;
+      }
 
       const effectiveStreet = streetName.trim() || completeAddress.trim().split(',')[0] || cityName.trim();
       const cityKey = (cityName || '').trim().toLowerCase();
-      if (!Number.isFinite(targetLat) || !Number.isFinite(targetLon) || (targetLat === 0 && targetLon === 0)) {
-        const areaResolved = resolveAreaCoordinates(cityName, effectiveStreet);
-        if (areaResolved && Number.isFinite(Number(areaResolved.lat)) && Number.isFinite(Number(areaResolved.lon))) {
-          targetLat = Number(areaResolved.lat);
-          targetLon = Number(areaResolved.lon);
-        } else if (CITY_COORDINATES[cityKey]) {
-          targetLat = CITY_COORDINATES[cityKey].lat;
-          targetLon = CITY_COORDINATES[cityKey].lon;
-        } else {
-          const geocoded = await forwardGeocodeAddress(`${effectiveStreet}, ${cityName.trim()}`);
-          if (geocoded && geocoded.lat && geocoded.lon) {
-            targetLat = geocoded.lat;
-            targetLon = geocoded.lon;
-          }
-        }
-      } else if (CITY_COORDINATES[cityKey]) {
-        const cCoords = CITY_COORDINATES[cityKey];
-        // Only snap to city coordinates if current editingLocation is missing or excessively far (>65km)
-        const distFromCity = calculateDistance(targetLat, targetLon, cCoords.lat, cCoords.lon);
-        if (distFromCity === null || distFromCity > 65) {
-          const areaResolved = resolveAreaCoordinates(cityName, effectiveStreet);
-          if (areaResolved && Number.isFinite(Number(areaResolved.lat))) {
-            targetLat = Number(areaResolved.lat);
-            targetLon = Number(areaResolved.lon);
-          } else {
-            targetLat = cCoords.lat;
-            targetLon = cCoords.lon;
-          }
-        }
-      }
-
-      if (!Number.isFinite(targetLat) || !Number.isFinite(targetLon)) {
-        targetLat = DEFAULT_USER_LOCATION.lat;
-        targetLon = DEFAULT_USER_LOCATION.lon;
-      }
 
       const parts = [
         completeAddress.trim(),
+        effectiveStreet !== completeAddress.trim() ? effectiveStreet : null,
         cityName.trim(),
         districtName.trim(),
         stateName.trim(),
@@ -925,11 +976,15 @@ export function DeliveryLocationFlowModal({
         district: districtName.trim() || (CITY_COORDINATES[cityKey]?.district || ''),
         state: stateName.trim() || (CITY_COORDINATES[cityKey]?.state || 'Tamil Nadu'),
         pincode: pincodeVal.trim(),
-        country: 'India',
-        googleMapsLink: googleMapsLink.trim(),
+        country: selectedCountryName || 'India',
+        googleMapsLink: saveLink,
+        hasPin: saveHasPin,
         contactType: finalContactType,
-        lat: targetLat,
-        lon: targetLon,
+        lat: saveLat,
+        lon: saveLon,
+        latitude: saveLat,
+        longitude: saveLon,
+        locationSource: saveHasPin ? 'map' : 'manual',
         receiverName: finalContactType === 'someone' ? receiverName.trim() : (receiverName.trim() || 'Customer'),
         receiverPhone: finalContactType === 'someone' ? receiverPhone.replace(/\D/g, '').slice(-10) : (receiverPhone.replace(/\D/g, '').slice(-10) || '9442461428'),
         formattedAddress: parts.join(', '),
@@ -1023,18 +1078,72 @@ export function DeliveryLocationFlowModal({
   // ------------------------------------------
   // STEP 3 STATE: MAP PIN DROP
   // ------------------------------------------
-  const mapCoord = {
-    latitude: Number(editingLocation?.lat) || DEFAULT_USER_LOCATION.lat,
-    longitude: Number(editingLocation?.lon) || DEFAULT_USER_LOCATION.lon,
-    latitudeDelta: 0.006,
-    longitudeDelta: 0.006,
-  };
-  const [mapRegion, setMapRegion] = useState(mapCoord);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: DEFAULT_USER_LOCATION.lat,
+    longitude: DEFAULT_USER_LOCATION.lon,
+    latitudeDelta: 0.015,
+    longitudeDelta: 0.015,
+  });
   const [resolvingPin, setResolvingPin] = useState(false);
   const reverseTimerRef = useRef(null);
 
+  // Open map to set or change pin
+  const handleOpenMapToSetPin = () => {
+    triggerHaptic('light');
+    // Save current pin state to restore on cancel
+    previousPinStateRef.current = {
+      hasPin,
+      pinCoords: pinCoords ? { ...pinCoords } : null,
+      googleMapsLink,
+    };
+
+    let targetLat = null;
+    let targetLon = null;
+
+    if (hasPin && pinCoords && Number.isFinite(Number(pinCoords.lat)) && Number.isFinite(Number(pinCoords.lon))) {
+      targetLat = Number(pinCoords.lat);
+      targetLon = Number(pinCoords.lon);
+    } else {
+      const resolved = getCoordinatesForAreaOrCity(cityName, districtName, stateName, streetName);
+      targetLat = resolved.lat;
+      targetLon = resolved.lon;
+    }
+
+    const region = {
+      latitude: targetLat,
+      longitude: targetLon,
+      latitudeDelta: 0.012,
+      longitudeDelta: 0.012,
+    };
+
+    setMapRegion(region);
+    setCurrentMapPinCoords({ latitude: targetLat, longitude: targetLon });
+    setEditingLocation(prev => ({
+      ...prev,
+      lat: targetLat,
+      lon: targetLon,
+    }));
+    setCurrentStep('map');
+  };
+
+  // Clear pin & URL
+  const handleClearPin = () => {
+    triggerHaptic('medium');
+    setHasPin(false);
+    setPinCoords(null);
+    setGoogleMapsLink('');
+    setEditingLocation(prev => ({
+      ...prev,
+      lat: null,
+      lon: null,
+      hasPin: false,
+      googleMapsLink: '',
+    }));
+  };
+
   const handleRegionChangeComplete = region => {
     setMapRegion(region);
+    setCurrentMapPinCoords({ latitude: region.latitude, longitude: region.longitude });
     if (reverseTimerRef.current) clearTimeout(reverseTimerRef.current);
 
     setResolvingPin(true);
@@ -1053,11 +1162,48 @@ export function DeliveryLocationFlowModal({
       } finally {
         setResolvingPin(false);
       }
-    }, 500);
+    }, 450);
   };
 
   const handleConfirmMapLocation = () => {
     triggerHaptic('medium');
+    const targetLat = currentMapPinCoords?.latitude ?? mapRegion.latitude;
+    const targetLon = currentMapPinCoords?.longitude ?? mapRegion.longitude;
+
+    if (!Number.isFinite(targetLat) || !Number.isFinite(targetLon)) {
+      Alert.alert('Location Error', 'Unable to resolve map coordinates.');
+      return;
+    }
+
+    const generatedLink = `https://www.google.com/maps?q=${targetLat},${targetLon}`;
+    setHasPin(true);
+    setPinCoords({ lat: Number(targetLat), lon: Number(targetLon) });
+    setGoogleMapsLink(generatedLink);
+    setEditingLocation(prev => ({
+      ...prev,
+      lat: Number(targetLat),
+      lon: Number(targetLon),
+      hasPin: true,
+      googleMapsLink: generatedLink,
+    }));
+
+    setCurrentStep('add_details');
+  };
+
+  const handleCancelMapPin = () => {
+    triggerHaptic('light');
+    const prev = previousPinStateRef.current;
+    setHasPin(prev.hasPin);
+    setPinCoords(prev.pinCoords);
+    setGoogleMapsLink(prev.googleMapsLink);
+    setEditingLocation(ePrev => ({
+      ...ePrev,
+      lat: prev.pinCoords ? prev.pinCoords.lat : null,
+      lon: prev.pinCoords ? prev.pinCoords.lon : null,
+      hasPin: prev.hasPin,
+      googleMapsLink: prev.googleMapsLink,
+    }));
+
     setCurrentStep('add_details');
   };
 
@@ -1540,36 +1686,93 @@ export function DeliveryLocationFlowModal({
                 </Text>
               </View>
 
-              {/* Row 4: Add google maps link (optional) */}
+              {/* Row 4: Google Maps link (Optional) */}
               <View
                 style={[
                   styles.mapLinkRow,
                   {
                     backgroundColor: isDarkMode ? 'rgba(255,255,255,0.04)' : '#F8FAFC',
-                    borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                    borderColor: hasPin
+                      ? (isDarkMode ? 'rgba(16, 185, 129, 0.45)' : 'rgba(16, 185, 129, 0.35)')
+                      : (isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'),
+                    paddingRight: 6,
                   },
                 ]}
               >
-                <Ionicons name="map" size={17} color="#3B82F6" style={{ marginRight: 8 }} />
-                <TextInput
-                  style={[styles.cleanInputInline, { color: isDarkMode ? '#FFFFFF' : '#0F172A' }]}
-                  placeholder={isTamil ? 'கூகுள் மேப் இணைப்பு (விருப்பமானது)' : 'Add google maps link (optional)'}
-                  placeholderTextColor="#94A3B8"
-                  value={googleMapsLink}
-                  onChangeText={setGoogleMapsLink}
+                <Ionicons
+                  name={hasPin ? 'location' : 'map-outline'}
+                  size={18}
+                  color={hasPin ? '#10B981' : '#3B82F6'}
+                  style={{ marginRight: 8 }}
                 />
-                <TouchableOpacity
-                  onPress={() => {
-                    triggerHaptic('light');
-                    setCurrentStep('map');
-                  }}
-                  style={styles.pinMapMiniBtn}
-                >
-                  <Ionicons name="locate" size={14} color="#10B981" />
-                  <Text style={styles.pinMapMiniBtnText}>
-                    {isTamil ? 'வரைபடம்' : 'Set Pin'}
-                  </Text>
-                </TouchableOpacity>
+                <TextInput
+                  style={[
+                    styles.cleanInputInline,
+                    {
+                      color: hasPin
+                        ? (isDarkMode ? '#34D399' : '#059669')
+                        : (isDarkMode ? '#94A3B8' : '#64748B'),
+                      fontSize: 12.5,
+                      fontWeight: hasPin ? '600' : '400',
+                    },
+                  ]}
+                  placeholder={
+                    isTamil
+                      ? 'கூகுள் மேப் இணைப்பு (விருப்பமானது - வரைபடம்)'
+                      : 'Google Maps link (optional - tap Set Pin)'
+                  }
+                  placeholderTextColor="#94A3B8"
+                  value={hasPin ? googleMapsLink : ''}
+                  editable={false}
+                />
+
+                {hasPin ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <TouchableOpacity
+                      onPress={handleOpenMapToSetPin}
+                      style={[
+                        styles.pinMapMiniBtn,
+                        { backgroundColor: isDarkMode ? 'rgba(16,185,129,0.18)' : '#DCFCE7' },
+                      ]}
+                      activeOpacity={0.75}
+                    >
+                      <Ionicons name="create-outline" size={13} color="#10B981" />
+                      <Text style={[styles.pinMapMiniBtnText, { color: '#10B981' }]}>
+                        {isTamil ? 'மாற்று' : 'Change'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={handleClearPin}
+                      style={[
+                        styles.pinMapMiniBtn,
+                        {
+                          backgroundColor: isDarkMode ? 'rgba(239,68,68,0.15)' : '#FEE2E2',
+                          borderColor: isDarkMode ? 'rgba(239,68,68,0.3)' : 'rgba(239,68,68,0.25)',
+                          borderWidth: 0.8,
+                        },
+                      ]}
+                      activeOpacity={0.75}
+                      hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                    >
+                      <Ionicons name="trash-outline" size={13} color="#EF4444" />
+                      <Text style={[styles.pinMapMiniBtnText, { color: '#EF4444' }]}>
+                        {isTamil ? 'நீக்கு' : 'Clear'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handleOpenMapToSetPin}
+                    style={styles.pinMapMiniBtn}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="locate" size={14} color="#10B981" />
+                    <Text style={styles.pinMapMiniBtnText}>
+                      {isTamil ? 'வரைபடம்' : 'Set Pin'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
 
@@ -2464,12 +2667,15 @@ export function DeliveryLocationFlowModal({
           .filter(Boolean)
           .join(', ');
 
+      const activePinLat = currentMapPinCoords?.latitude ?? mapRegion.latitude;
+      const activePinLon = currentMapPinCoords?.longitude ?? mapRegion.longitude;
+
       return (
         <View style={styles.sheetContainer}>
           {/* Top Bar on Map */}
           <View style={styles.mapTopHeader}>
             <TouchableOpacity
-              onPress={() => setCurrentStep('add_details')}
+              onPress={handleCancelMapPin}
               style={[styles.mapHeaderCircleBtn, { backgroundColor: isDarkMode ? '#132018' : '#FFFFFF' }]}
               activeOpacity={0.8}
             >
@@ -2484,12 +2690,12 @@ export function DeliveryLocationFlowModal({
             >
               <Ionicons name="location" size={16} color="#10B981" />
               <Text style={[styles.mapSearchText, { color: isDarkMode ? '#FFFFFF' : '#0F172A' }]} numberOfLines={1}>
-                {editingLocation?.area || editingLocation?.city || 'Select delivery location'}
+                {cityName ? `${cityName}${districtName ? `, ${districtName}` : ''}` : (editingLocation?.city || 'Select pin location')}
               </Text>
             </View>
 
             <TouchableOpacity
-              onPress={onClose}
+              onPress={handleCancelMapPin}
               style={[styles.mapHeaderCircleBtn, { backgroundColor: isDarkMode ? '#132018' : '#FFFFFF' }]}
               activeOpacity={0.8}
             >
@@ -2502,9 +2708,10 @@ export function DeliveryLocationFlowModal({
             {MapView ? (
               <MapView
                 style={StyleSheet.absoluteFillObject}
-                initialRegion={mapCoord}
+                initialRegion={mapRegion}
+                region={mapRegion}
                 onRegionChangeComplete={handleRegionChangeComplete}
-                showsUserLocation={true}
+                showsUserLocation={false}
                 showsMyLocationButton={false}
               />
             ) : (
@@ -2521,7 +2728,7 @@ export function DeliveryLocationFlowModal({
             </View>
           </View>
 
-          {/* Floating Bottom Card (Screenshot 3) */}
+          {/* Floating Bottom Card */}
           <View
             style={[
               styles.floatingBottomCard,
@@ -2553,20 +2760,41 @@ export function DeliveryLocationFlowModal({
                 >
                   {resolvingPin
                     ? (isTamil ? 'முகவரி கண்டறியப்படுகிறது...' : 'Resolving address...')
-                    : liveAddress}
+                    : (liveAddress || `${Number(activePinLat).toFixed(5)}, ${Number(activePinLon).toFixed(5)}`)}
                 </Text>
               </View>
             </View>
 
-            <TouchableOpacity
-              style={[styles.confirmPinBtn, { backgroundColor: '#10B981' }]}
-              onPress={handleConfirmMapLocation}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.confirmPinBtnText}>
-                {isTamil ? 'முகவரியை உறுதி செய்க ➔' : 'Confirm location'}
-              </Text>
-            </TouchableOpacity>
+            {/* Actions: Cancel & Confirm buttons side-by-side */}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+              <TouchableOpacity
+                style={[
+                  styles.cancelPinBtn,
+                  {
+                    flex: 1,
+                    backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#F1F5F9',
+                    borderColor: isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+                    borderWidth: 1,
+                  },
+                ]}
+                onPress={handleCancelMapPin}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.cancelPinBtnText, { color: isDarkMode ? '#E2E8F0' : '#475569' }]}>
+                  {isTamil ? 'ரத்து' : 'Cancel'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.confirmPinBtn, { flex: 2, backgroundColor: '#10B981', marginTop: 0 }]}
+                onPress={handleConfirmMapLocation}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.confirmPinBtnText}>
+                  {isTamil ? 'இடத்தை உறுதி செய்க ➔' : 'Confirm Location ➔'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       );
@@ -3279,6 +3507,16 @@ const styles = StyleSheet.create({
     color: '#050906',
     fontSize: 14,
     fontWeight: '800',
+  },
+  cancelPinBtn: {
+    height: 46,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelPinBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 
   // Image 1, 2, 3 Layout Styles

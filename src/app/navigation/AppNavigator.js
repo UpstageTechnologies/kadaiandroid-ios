@@ -27,8 +27,6 @@ import TrackOrderScreen from '../../screens/tracking/TrackOrderScreen';
 import OrdersScreen from '../../screens/orders/OrdersScreen';
 import ProfileSettingsScreen from '../../screens/profile/ProfileSettingsScreen';
 import LocationPickerScreen from '../../screens/location/LocationPickerScreen';
-import FloatingLiveOrderTracker from '../../components/liquidGlass/FloatingLiveOrderTracker';
-import DynamicIslandTracker from '../../components/liquidGlass/DynamicIslandTracker';
 const Stack = createStackNavigator();
 
 export const navigationRef = createNavigationContainerRef();
@@ -164,8 +162,6 @@ useEffect(() => {
 
       </Stack.Navigator>
 
-      {/* Apple-Style Dynamic Island Live Order Activity (Sub-header dock across all screens) */}
-      <DynamicIslandTracker navigationRef={navigationRef} />
       <Toast />
 
     </>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useContext, useMemo, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -41,6 +41,7 @@ import { AccountsModal } from '../../components/liquidGlass/AccountsModal';
 import { AnimatedSplashScreen } from '../../components/liquidGlass/AnimatedSplashScreen';
 import { TEXTURED_DARK, TEXTURED_LIGHT } from '../../components/liquidGlass/theme';
 import { triggerHaptic } from '../../components/liquidGlass/safeHaptics';
+import { calculateEffectivePricing } from '../../utils/pricing';
 import {
   calculateDistance,
   getSellerCoordinates,
@@ -53,140 +54,315 @@ import {
 
 const { width } = Dimensions.get('window');
 
-// Curated default products matching Zepto/Blinkit split reference screenshot
-const CURATED_DEFAULT_PRODUCTS = [
-  {
-    id: 'prod_strawberry_01',
-    name: 'Premium Ooty Strawberry',
-    nameTa: 'ஊட்டி ஸ்ட்ராபெரி',
-    price: 189,
-    mrp: 245,
-    unit: '180 g',
-    stockCount: '4 left',
-    rating: 4.8,
-    category: 'fruits',
-    isVeg: true,
-    isOrganic: true,
-    shopName: 'Fresh Farms Ooty',
-    img: 'https://images.unsplash.com/photo-1464965911861-746a04b4bca6?auto=format&fit=crop&w=400&q=80',
-    storePrices: [{ shopId: 's1', shopName: 'Fresh Farms', price: 189, inStock: true, distanceKm: '1.2' }],
-  },
-  {
-    id: 'prod_persimmon_02',
-    name: 'Persimmon',
-    nameTa: 'பெர்சிமன் பழம்',
-    price: 121,
-    mrp: 143,
-    unit: '250 g',
-    pieces: '2 pcs',
-    stockCount: '2 left',
-    rating: 4.6,
-    category: 'fruits',
-    isVeg: true,
-    isOrganic: false,
-    shopName: 'Hilltop Exotics',
-    img: 'https://images.unsplash.com/photo-1598025362874-49480e049c76?auto=format&fit=crop&w=400&q=80',
-    storePrices: [{ shopId: 's1', shopName: 'Hilltop Exotics', price: 121, inStock: true, distanceKm: '1.4' }],
-  },
-  {
-    id: 'prod_guava_03',
-    name: 'Thai Guava (Perakka)',
-    nameTa: 'தாய் கொய்யா (பேரக்கா)',
-    price: 120,
-    mrp: 154,
-    unit: '400 g',
-    pieces: '2 pcs',
-    stockCount: '5 left',
-    rating: 4.7,
-    category: 'fruits',
-    isVeg: true,
-    isOrganic: true,
-    shopName: 'Namma Oor Thottam',
-    img: 'https://images.unsplash.com/photo-1536511135899-73899f848c8a?auto=format&fit=crop&w=400&q=80',
-    storePrices: [{ shopId: 's2', shopName: 'Namma Oor Thottam', price: 120, inStock: true, distanceKm: '0.8' }],
-  },
-  {
-    id: 'prod_coconut_04',
-    name: 'Brown Coconut (Naalikeram)',
-    nameTa: 'தேங்காய் (நாளிகேரம்)',
-    price: 49,
-    mrp: 56,
-    unit: '1 pc',
-    stockCount: '8 left',
-    rating: 4.9,
-    category: 'fruits',
-    isVeg: true,
-    isOrganic: true,
-    shopName: 'Pollachi Coconut Mandi',
-    img: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=400&q=80',
-    storePrices: [{ shopId: 's3', shopName: 'Pollachi Mandi', price: 49, inStock: true, distanceKm: '1.6' }],
-  },
-  {
-    id: 'prod_shallots_05',
-    name: 'Shallots (Sambar Vengayam)',
-    nameTa: 'சாம்பார் சின்ன வெங்காயம்',
-    price: 58,
-    mrp: 70,
-    unit: '500 g',
-    stockCount: '6 left',
-    rating: 4.8,
-    category: 'veg',
-    isVeg: true,
-    isOrganic: false,
-    shopName: 'Udumalpet Farmers',
-    img: 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?auto=format&fit=crop&w=400&q=80',
-    storePrices: [{ shopId: 's2', shopName: 'Udumalpet Farmers', price: 58, inStock: true, distanceKm: '1.1' }],
-  },
-  {
-    id: 'prod_coriander_06',
-    name: 'Fresh Coriander (Kothamalli)',
-    nameTa: 'நாட்டு கொத்தமல்லி தழை',
-    price: 18,
-    mrp: 25,
-    unit: '1 bunch',
-    stockCount: '10 left',
-    rating: 4.5,
-    category: 'herbs',
-    isVeg: true,
-    isOrganic: true,
-    shopName: 'Green Leaves Depot',
-    img: 'https://images.unsplash.com/photo-1590779033100-9f60a05a013d?auto=format&fit=crop&w=400&q=80',
-    storePrices: [{ shopId: 's1', shopName: 'Green Leaves', price: 18, inStock: true, distanceKm: '0.9' }],
-  },
-  {
-    id: 'prod_banana_07',
-    name: 'Robusta Ripe Bananas',
-    nameTa: 'ரோபஸ்டா வாழைப்பழம்',
-    price: 38,
-    mrp: 48,
-    unit: '1 kg',
-    pieces: '5-6 pcs',
-    stockCount: '12 left',
-    rating: 4.8,
-    category: 'fruits',
-    isVeg: true,
-    isOrganic: false,
-    shopName: 'Trichy Fruits Mart',
-    img: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=400&q=80',
-    storePrices: [{ shopId: 's3', shopName: 'Trichy Mart', price: 38, inStock: true, distanceKm: '1.5' }],
-  },
-  {
-    id: 'prod_watermelon_08',
-    name: 'Seedless Watermelon',
-    nameTa: 'தர்பூசணி',
-    price: 65,
-    mrp: 85,
-    unit: '1 pc (approx 2kg)',
-    stockCount: '3 left',
-    rating: 4.6,
-    category: 'seasonal',
-    isVeg: true,
-    isOrganic: true,
-    shopName: 'Summer Delights',
-    img: 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=400&q=80',
-    storePrices: [{ shopId: 's2', shopName: 'Summer Delights', price: 65, inStock: true, distanceKm: '1.0' }],
-  },
-];
+export const cleanNorm = str =>
+  String(str || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+
+export const normalizeCategoryValue = cleanNorm;
+
+export const CATEGORY_SYNONYMS = {
+  groceries: [
+    'grocery', 'groceries', 'maligai', 'staples', 'rice', 'dal', 'toor dal', 'wheat',
+    'atta', 'flour', 'arisi', 'paruppu', 'dhal', 'sugar', 'salt', 'provisions', 'grain',
+    'pulses', 'oilseeds', 'rava', 'sooji', 'maida', 'urad', 'moong', 'chana', 'poha', 'aval',
+    'மளிகை', 'அரிசி', 'பருப்பு', 'தானியங்கள்', 'மாவு',
+  ],
+  fruits: [
+    'fruit', 'fruits', 'veggie', 'veggies', 'vegetables', 'vegetable', 'strawberry', 'persimmon',
+    'onion', 'tomato', 'potato', 'keerai', 'greens', 'vengayam', 'thakkali', 'urulai', 'kaikari',
+    'pazhangal', 'apple', 'banana', 'mango', 'orange', 'citrus', 'carrot', 'beans', 'cabbage',
+    'காய்கறிகள்', 'பழங்கள்', 'கீரை', 'வெங்காயம்', 'தக்காளி',
+  ],
+  dairy: [
+    'dairy', 'milk', 'curd', 'butter', 'paneer', 'cheese', 'ghee', 'paal', 'thayir',
+    'vennai', 'nei', 'yogurt', 'cream', 'buttermilk', 'mor', 'khoya', 'kova',
+    'பால்', 'தயிர்', 'வெண்ணெய்', 'நெய்', 'பனீர்',
+  ],
+  oils: [
+    'oil', 'oils', 'ghee', 'sunflower', 'gingelly', 'groundnut', 'ennai', 'deepam',
+    'sesame', 'mustard', 'coconut oil', 'cooking oil', 'refined oil', 'marachekku',
+    'எண்ணெய்', 'சமையல் எண்ணெய்', 'நல்லெண்ணெய்', 'கடலை எண்ணெய்',
+  ],
+  spices: [
+    'spice', 'spices', 'masala', 'masalas', 'powder', 'chilli', 'turmeric', 'pepper',
+    'coriander', 'podigal', 'sambhar', 'garam', 'clove', 'cardamom', 'cinnamon', 'jeera',
+    'cumin', 'fenugreek', 'venthaiyam', 'milagu', 'seeragam', 'manjal', 'milagai',
+    'மசாலா', 'பொடிகள்', 'மஞ்சள்', 'மிளகு', 'சீரகம்', 'சாம்பார்',
+  ],
+  snacks: [
+    'snack', 'snacks', 'biscuit', 'biscuits', 'cookies', 'chips', 'murukku', 'mixture',
+    'sweets', 'chocolate', 'candy', 'namkeen', 'mittai', 'karam', 'mixture', 'ladoo',
+    'halwa', 'wafers', 'crisps', 'popcorn',
+    'சிற்றுண்டி', 'பிஸ்கட்', 'முறுக்கு', 'ஸ்வீட்ஸ்', 'மிட்டாய்',
+  ],
+  beverages: [
+    'beverage', 'beverages', 'tea', 'coffee', 'juice', 'soda', 'cool drinks', 'drink',
+    'horlicks', 'boost', 'water', 'health drink', 'energy drink', 'syrup', 'squash', 'chai',
+    'காபி', 'டீ', 'குளிர்பானங்கள்', 'பானங்கள்', 'ஜூஸ்',
+  ],
+  pooja: [
+    'pooja', 'puja', 'camphor', 'agarbathi', 'incense', 'oil', 'sambrani', 'divine',
+    'vilakku', 'dhoop', 'kumkum', 'vibuthi', 'karpooram', 'deepam', 'matchbox',
+    'wicks', 'cotton wick', 'thiri', 'chandanam',
+    'பூஜை', 'கற்பூரம்', 'அகர்பத்தி', 'சாம்பிராணி', 'விளக்கு', 'குங்குமம்',
+  ],
+  cleaning: [
+    'cleaning', 'household', 'detergent', 'soap', 'dishwash', 'cleaner', 'surf', 'rin',
+    'broom', 'mop', 'harpic', 'comfort', 'fabric', 'bleach', 'wash', 'scrubber', 'vim',
+    'floor cleaner', 'toilet cleaner', 'mosquito', 'repellent', 'all out', 'good knight',
+    'வீட்டு உபயோக பொருட்கள்', 'சுத்தம்', 'சலவை', 'சோப்பு',
+  ],
+  personal_care: [
+    'personal', 'care', 'hygiene', 'soap', 'shampoo', 'toothpaste', 'brush', 'lotion',
+    'hair', 'face', 'cream', 'cosmetics', 'beauty', 'skin', 'deodorant', 'powder',
+    'perfume', 'sanitary', 'napkin', 'pad', 'shaving', 'razor',
+    'தனிநபர் பராமரிப்பு', 'சோப்', 'ஷாம்பு', 'பற்பசை',
+  ],
+  hardware: [
+    'hardware', 'electrical', 'tools', 'bulb', 'wire', 'switch', 'tape', 'battery',
+    'lock', 'plumbing', 'led', 'plug', 'hammer', 'screwdriver', 'nail', 'screw',
+    'ஹார்டுவேர்', 'மின்சாதனங்கள்', 'டூல்ஸ்',
+  ],
+  stationery: [
+    'stationery', 'book', 'books', 'notebook', 'pen', 'pencil', 'eraser', 'scale',
+    'paper', 'stapler', 'fevicol', 'gum', 'crayons', 'marker', 'file', 'folder',
+    'ஸ்டேஷனரி', 'நோட்டு', 'புத்தகம்', 'பேனா',
+  ],
+  apparel: [
+    'clothes', 'clothing', 'dhoti', 'veshti', 'towel', 'saree', 'cotton', 'lungi',
+    'handloom', 'wear', 'fashion', 'shirt', 'pant', 'innerwear', 'banian',
+    'ஆடைகள்', 'வேஷ்டி', 'துண்டு', 'சேலை',
+  ],
+  bakery: [
+    'bakery', 'bread', 'bun', 'cake', 'rusk', 'toast', 'puff', 'pastry', 'cookies',
+    'brownie', 'muffin',
+    'பேக்கரி', 'ரொட்டி', 'கேக்', 'பன்',
+  ],
+};
+
+export const isProductMatchingCategory = (product, selectedCategory) => {
+  if (!product || !selectedCategory) return true;
+
+  const selId = cleanNorm(selectedCategory.id);
+  const prodCatId = cleanNorm(product.categoryId);
+  const prodParentCatId = cleanNorm(product.parentCategoryId);
+  const prodSubcatId = cleanNorm(product.subcategoryId);
+
+  // 1. Direct ID checks
+  if (selId) {
+    if (prodCatId && prodCatId === selId) return true;
+    if (prodParentCatId && prodParentCatId === selId) return true;
+    if (prodSubcatId && prodSubcatId === selId) return true;
+  }
+
+  if (Array.isArray(selectedCategory.childCategoryIds) && selectedCategory.childCategoryIds.length > 0) {
+    const childIds = selectedCategory.childCategoryIds.map(cleanNorm);
+    if (prodCatId && childIds.includes(prodCatId)) return true;
+    if (prodSubcatId && childIds.includes(prodSubcatId)) return true;
+  }
+
+  // 2. Text-based matching
+  const prodCat = cleanNorm(product.category);
+  const prodSubcat = cleanNorm(product.subcategory);
+  const prodParentCat = cleanNorm(product.parentCategory);
+  const prodName = cleanNorm(product.name);
+  const prodNameTa = cleanNorm(product.nameTa);
+  const prodCombined = `${prodCat} ${prodSubcat} ${prodParentCat} ${prodName} ${prodNameTa}`;
+
+  const catNames = [
+    selectedCategory.name,
+    selectedCategory.shortName,
+    selectedCategory.nameTa,
+    selectedCategory.id,
+    ...(selectedCategory.childCategoryNames || []),
+  ]
+    .filter(Boolean)
+    .map(cleanNorm);
+
+  for (const cName of catNames) {
+    if (!cName) continue;
+    if (prodCat && (prodCat === cName || prodCat.includes(cName) || cName.includes(prodCat))) return true;
+    if (prodSubcat && (prodSubcat === cName || prodSubcat.includes(cName) || cName.includes(prodSubcat))) return true;
+    if (prodParentCat && (prodParentCat === cName || prodParentCat.includes(cName) || cName.includes(prodParentCat))) return true;
+  }
+
+  // 3. Keyword & Synonym matching
+  const explicitKeywords = Array.isArray(selectedCategory.keywords)
+    ? selectedCategory.keywords
+    : [];
+
+  let synonymList = [];
+  if (selId && CATEGORY_SYNONYMS[selId]) {
+    synonymList = CATEGORY_SYNONYMS[selId];
+  } else {
+    for (const [key, syns] of Object.entries(CATEGORY_SYNONYMS)) {
+      if (catNames.some(cName => cName === key || cName.includes(key) || key.includes(cName))) {
+        synonymList = [...synonymList, ...syns];
+      }
+    }
+  }
+
+  const allKeywords = [...new Set([...explicitKeywords, ...synonymList])].map(cleanNorm).filter(Boolean);
+
+  for (const kw of allKeywords) {
+    if (kw.length < 2) continue;
+    if (prodCat && (prodCat === kw || prodCat.includes(kw))) return true;
+    if (prodSubcat && (prodSubcat === kw || prodSubcat.includes(kw))) return true;
+    if (prodCombined.includes(kw)) return true;
+  }
+
+  return false;
+};
+
+const isVisibleFirestoreCategory = data =>
+  data.active !== false &&
+  data.isActive !== false &&
+  data.deleted !== true &&
+  data.isDeleted !== true;
+
+const normalizeFirestoreCategory = (snapshot, parent = null) => {
+  const data = snapshot.data() || {};
+  const name = String(data.name || data.categoryName || data.title || snapshot.id).trim();
+
+  return {
+    id: snapshot.id,
+    name,
+    nameTa: typeof data.nameTa === 'string' ? data.nameTa : null,
+    shortName: typeof data.shortName === 'string' ? data.shortName : name,
+    icon: typeof data.icon === 'string' ? data.icon : null,
+    image: data.image || data.imageUrl || null,
+    displayOrder: data.displayOrder,
+    sortOrder: data.sortOrder,
+    parentId: parent?.id || null,
+    parentName: parent?.name || null,
+    parentNameTa: parent?.nameTa || null,
+    level: parent ? 'subcategory' : 'parent',
+  };
+};
+
+const sortFirestoreCategories = categories =>
+  [...categories].sort((a, b) => {
+    const aOrder = Number(a.displayOrder ?? a.sortOrder);
+    const bOrder = Number(b.displayOrder ?? b.sortOrder);
+    const aHasOrder = Number.isFinite(aOrder);
+    const bHasOrder = Number.isFinite(bOrder);
+
+    if (aHasOrder && bHasOrder && aOrder !== bOrder) return aOrder - bOrder;
+    if (aHasOrder !== bHasOrder) return aHasOrder ? -1 : 1;
+    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+  });
+
+const CURATED_DEFAULT_PRODUCTS = [];
+
+export const normalizeCity = city => {
+  if (!city || typeof city !== 'string') return '';
+  return city
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]/g, '');
+};
+
+export const getSellerCity = sellerData => {
+  if (!sellerData) return '';
+  const rawCity =
+    sellerData.city ||
+    sellerData.address?.city ||
+    sellerData.storeAddress?.city ||
+    sellerData.businessCity ||
+    sellerData.storeCity ||
+    sellerData.district ||
+    sellerData.address?.district ||
+    '';
+  return typeof rawCity === 'string' ? rawCity.trim() : '';
+};
+
+export const isGlobalEligibleSeller = sellerData => {
+  if (!sellerData) return false;
+  return (
+    sellerData.isGlobalSeller === true ||
+    sellerData.globalSeller === true ||
+    sellerData.enableGlobal === true ||
+    sellerData.allowGlobalOrders === true ||
+    sellerData.isGlobal === true ||
+    sellerData.deliveryScope === 'global' ||
+    sellerData.worldwide === true ||
+    sellerData.role === 'seller'
+  );
+};
+
+export const parseProductOffer = (item, shop) => {
+  if (!item) return null;
+  if (
+    item.active === false ||
+    item.isActive === false ||
+    item.deleted === true ||
+    item.isDeleted === true
+  ) {
+    return null;
+  }
+  const qty = Number(item.quantity ?? item.stock ?? 0);
+  if (qty <= 0) return null;
+
+  const pricing = calculateEffectivePricing(item);
+  if (!pricing.hasDiscount || pricing.price <= 0 || pricing.originalPrice <= pricing.price) {
+    return null;
+  }
+
+  const name = String(item.itemName || item.name || '').trim();
+  if (!name) return null;
+
+  const brand = String(item.brand || item.brandName || '').trim();
+  const subName = String(
+    item.subName || item.productSubName || item.modelName || item.variant || '',
+  ).trim();
+  const model = String(item.model || item.modelNumber || item.modelNo || '').trim();
+  const description = String(
+    item.description || item.productDescription || item.details || '',
+  ).trim();
+  const itemNo = String(item.itemNo || item.sku || item.productCode || '').trim();
+  const images = Array.isArray(item.images) && item.images.length ? item.images : undefined;
+
+  return {
+    id: item.id,
+    name,
+    nameTa: item.nameTa || null,
+    brand,
+    subName,
+    model,
+    description,
+    itemNo,
+    price: pricing.price,
+    salesPrice: pricing.price,
+    originalPrice: pricing.originalPrice,
+    originalSalesPrice: pricing.originalPrice,
+    mrp: pricing.originalPrice,
+    discountPercent: pricing.discountPercent,
+    discountBadge: pricing.discountBadge,
+    discountValue: pricing.discountAmount,
+    discountType: pricing.discountType,
+    hasDiscount: true,
+    img: item.image || item.imageUrl || item.img || null,
+    images: images || (item.img || item.image ? [item.img || item.image] : undefined),
+    unit: item.unit || item.measurement || '1 pc',
+    quantity: qty,
+    stockCount: `${qty} left`,
+    shopId: shop.id,
+    shopName: shop.shopName || shop.name || 'Store',
+    shopImage: shop.shopImage || shop.profileImage || shop.image || null,
+    category: item.category || item.categoryName || item.category_name || item.cat || '',
+    categoryId: typeof item.categoryId === 'string' ? item.categoryId : null,
+    parentCategoryId: typeof item.parentCategoryId === 'string' ? item.parentCategoryId : null,
+    parentCategory: item.parentCategory || item.parent_category || null,
+    subcategoryId: typeof item.subcategoryId === 'string' ? item.subcategoryId : null,
+    subcategory: item.subcategory || item.subCategory || item.sub_category || null,
+    marketType: shop.marketType || 'local',
+    marketMode: shop.marketType || 'local',
+    inventoryCollection: shop.marketType === 'global' ? 'global_inventory' : 'inventory',
+  };
+};
 
 export default function LiquidGlassHome({ navigation }) {
   const db = getFirestore();
@@ -306,16 +482,126 @@ export default function LiquidGlassHome({ navigation }) {
   // Data States
   const [sellers, setSellers] = useState([]);
   const [selectedShop, setSelectedShop] = useState(null);
-  const [products, setProducts] = useState(CURATED_DEFAULT_PRODUCTS);
+  const [products, setProducts] = useState([]);
+  const [offers, setOffers] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [loadingOffers, setLoadingOffers] = useState(false);
   const [cart, setCart] = useState({});
   const [orders, setOrders] = useState([]);
+
+  // Sync userLocation when active address changes in customer profile
+  useEffect(() => {
+    if (customerData?.address) {
+      setUserLocation(normalizeAddressPayload(customerData.address));
+    }
+  }, [customerData?.address]);
+
+  const customerCity = (
+    userLocation?.city ||
+    customerData?.address?.city ||
+    ''
+  ).trim();
 
   // Modals
   const [isAccountModalVisible, setIsAccountModalVisible] = useState(false);
   const [comparingProduct, setComparingProduct] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesError, setCategoriesError] = useState(null);
+  const [categoriesReloadKey, setCategoriesReloadKey] = useState(0);
+  const subcategoryCache = useRef(new Map());
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCategories = async () => {
+      setCategoriesLoading(true);
+      setCategoriesError(null);
+
+      try {
+        const snapshot = await getDocs(collection(db, 'categories'));
+        const seenIds = new Set();
+        const fetchedCategories = [];
+
+        snapshot.forEach(categoryDoc => {
+          if (seenIds.has(categoryDoc.id)) return;
+          const data = categoryDoc.data() || {};
+          if (!isVisibleFirestoreCategory(data)) return;
+
+          seenIds.add(categoryDoc.id);
+          fetchedCategories.push({
+            ...normalizeFirestoreCategory(categoryDoc),
+            displayOrder: data.displayOrder,
+            sortOrder: data.sortOrder,
+          });
+        });
+
+        if (!cancelled) {
+          if (fetchedCategories.length > 0) {
+            setCategories(sortFirestoreCategories(fetchedCategories));
+          } else {
+            setCategories(DEFAULT_RAIL_CATEGORIES);
+          }
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setCategories(DEFAULT_RAIL_CATEGORIES);
+          setCategoriesError(error);
+        }
+      } finally {
+        if (!cancelled) setCategoriesLoading(false);
+      }
+    };
+
+    loadCategories();
+    return () => {
+      cancelled = true;
+    };
+  }, [db, categoriesReloadKey]);
+
+  const retryLoadCategories = useCallback(() => {
+    setCategoriesReloadKey(key => key + 1);
+  }, []);
+
+  const loadSubcategories = useCallback(async parentId => {
+    if (!parentId) return [];
+    const cachedOrPending = subcategoryCache.current.get(parentId);
+    if (cachedOrPending) {
+      return cachedOrPending;
+    }
+
+    const request = (async () => {
+      const snapshot = await getDocs(
+        collection(db, 'categories', parentId, 'subcategories'),
+      );
+      const parent = categories.find(category => category.id === parentId) || { id: parentId };
+      const seenIds = new Set();
+      const children = [];
+
+      snapshot.forEach(subcategoryDoc => {
+        if (seenIds.has(subcategoryDoc.id)) return;
+        const data = subcategoryDoc.data() || {};
+        if (!isVisibleFirestoreCategory(data)) return;
+
+        seenIds.add(subcategoryDoc.id);
+        children.push(normalizeFirestoreCategory(subcategoryDoc, parent));
+      });
+
+      return sortFirestoreCategories(children);
+    })();
+
+    subcategoryCache.current.set(parentId, request);
+    try {
+      const children = await request;
+      subcategoryCache.current.set(parentId, children);
+      return children;
+    } catch (error) {
+      subcategoryCache.current.delete(parentId);
+      throw error;
+    }
+  }, [categories, db]);
 
   // Toggle Favorite
   const toggleFavorite = productId => {
@@ -380,135 +666,279 @@ export default function LiquidGlassHome({ navigation }) {
     return () => unsubscribe();
   }, [user?.uid]);
 
-  // 3. Subscribe to Nearby Upstage POS Sellers
+  // 3 & 4. Discover eligible shops and load their inventory & discount offers
   useEffect(() => {
+    let cancelled = false;
+
     const sellerQuery = query(
       collection(db, 'users'),
-      where('role', '==', 'seller')
+      where('role', '==', 'seller'),
     );
 
     const unsubscribe = onSnapshot(
       sellerQuery,
-      snapshot => {
-        const list = [];
-        snapshot.forEach(docSnap => {
-          const data = docSnap.data();
-          const sellerCoords = getSellerCoordinates(data);
-          const dist =
-            sellerCoords && customerLat && customerLon
-              ? calculateDistance(customerLat, customerLon, sellerCoords.lat, sellerCoords.lon)
-              : null;
+      async snapshot => {
+        setLoadingProducts(true);
+        setLoadingOffers(true);
 
-          let withinRadius = false;
-          if (marketMode === 'local') {
-            const maxR = typeof radiusKm === 'number' ? radiusKm : 3;
-            // In local mode, seller MUST have valid coordinates AND be within maxR
-            withinRadius = dist !== null && dist <= maxR;
-          } else {
-            // Global mode: 50km, 100km, 200km, or 'all'
-            if (radiusKm !== 'all' && typeof radiusKm === 'number') {
-              withinRadius = dist !== null ? dist <= radiusKm : true;
+        try {
+          const isLocal = marketMode === 'local';
+          const normCustomerCity = normalizeCity(customerCity);
+
+          // Step 1: Pre-filter shops by location/eligibility
+          const candidateSellers = [];
+          snapshot.forEach(docSnap => {
+            const data = docSnap.data() || {};
+            const isSellerActive =
+              data.active !== false &&
+              data.isActive !== false &&
+              data.deleted !== true &&
+              data.isDeleted !== true &&
+              data.status !== 'suspended' &&
+              data.status !== 'inactive';
+
+            if (!isSellerActive) return;
+
+            if (isLocal) {
+              // Local mode: match seller registered business city
+              const sellerCity = getSellerCity(data);
+              const normSellerCity = normalizeCity(sellerCity);
+
+              const isMatched = normCustomerCity
+                ? normSellerCity === normCustomerCity ||
+                  normSellerCity.includes(normCustomerCity) ||
+                  normCustomerCity.includes(normSellerCity)
+                : true;
+
+              if (isMatched) {
+                candidateSellers.push({
+                  id: docSnap.id,
+                  ...data,
+                  sellerCity: sellerCity || customerCity,
+                  marketType: 'local',
+                });
+              }
             } else {
-              withinRadius = true;
+              // Global mode: worldwide eligibility check
+              if (isGlobalEligibleSeller(data)) {
+                candidateSellers.push({
+                  id: docSnap.id,
+                  ...data,
+                  marketType: 'global',
+                });
+              }
+            }
+          });
+
+          // Step 2: For each candidate shop, read only its corresponding inventory:
+          // Local: users/{shopUid}/inventory
+          // Global: users/{shopUid}/global_inventory
+          const targetCollection = isLocal ? 'inventory' : 'global_inventory';
+          const verifiedSellers = [];
+          const allProducts = [];
+          const allOffers = [];
+
+          for (const seller of candidateSellers) {
+            try {
+              const invSnap = await getDocs(
+                collection(db, 'users', seller.id, targetCollection),
+              );
+
+              let validProductCount = 0;
+
+              invSnap.forEach(docSnap => {
+                const data = docSnap.data() || {};
+                const isItemActive =
+                  data.active !== false &&
+                  data.isActive !== false &&
+                  data.deleted !== true &&
+                  data.isDeleted !== true;
+
+                const qty = Number(data.quantity ?? data.stock ?? 0);
+                const pricing = calculateEffectivePricing(data);
+                const price = pricing.price;
+
+                // Validate product
+                if (!isItemActive || qty <= 0 || price <= 0) return;
+
+                validProductCount++;
+
+                const prodName = String(data.itemName || data.name || 'Product').trim();
+                const prodBrand = String(data.brand || data.brandName || '').trim();
+                const prodSubName = String(
+                  data.subName || data.productSubName || data.modelName || data.variant || '',
+                ).trim();
+                const prodModel = String(data.model || data.modelNumber || data.modelNo || '').trim();
+                const prodDesc = String(
+                  data.description || data.productDescription || data.details || '',
+                ).trim();
+                const prodItemNo = String(data.itemNo || data.sku || data.productCode || '').trim();
+                const images = Array.isArray(data.images) && data.images.length ? data.images : undefined;
+
+                const rawCategory = String(
+                  data.category ||
+                  data.categoryName ||
+                  data.category_name ||
+                  data.cat ||
+                  data.department ||
+                  data.section ||
+                  '',
+                ).trim();
+
+                const rawCategoryId =
+                  data.categoryId ||
+                  data.category_id ||
+                  data.catId ||
+                  data.cat_id ||
+                  null;
+
+                const rawSubcategory = String(
+                  data.subcategory ||
+                  data.subCategory ||
+                  data.sub_category ||
+                  data.subCategoryName ||
+                  '',
+                ).trim();
+
+                const rawSubcategoryId =
+                  data.subcategoryId ||
+                  data.subCategoryId ||
+                  data.sub_category_id ||
+                  null;
+
+                const rawParentCategoryId =
+                  data.parentCategoryId ||
+                  data.parent_category_id ||
+                  data.parentCatId ||
+                  null;
+
+                const rawParentCategory = String(
+                  data.parentCategory ||
+                  data.parent_category ||
+                  data.parentCategoryName ||
+                  '',
+                ).trim();
+
+                const productItem = {
+                  id: docSnap.id,
+                  shopId: seller.id,
+                  shopName: seller.shopName || seller.name || 'Local Shop',
+                  shopImage: seller.shopImage || seller.profileImage || seller.image || null,
+                  name: prodName,
+                  nameTa: data.nameTa || null,
+                  brand: prodBrand,
+                  subName: prodSubName,
+                  model: prodModel,
+                  description: prodDesc,
+                  itemNo: prodItemNo,
+                  price,
+                  salesPrice: price,
+                  originalPrice: pricing.originalPrice,
+                  originalSalesPrice: pricing.originalPrice,
+                  mrp: pricing.originalPrice > 0 ? pricing.originalPrice : (Number(data.mrp) || price),
+                  hasDiscount: pricing.hasDiscount,
+                  discountPercent: pricing.discountPercent,
+                  discountBadge: pricing.discountBadge,
+                  discountType: pricing.discountType,
+                  discountValue: data.discountValue ?? 0,
+                  img: data.image || data.imageUrl || data.img || null,
+                  images: images || (data.image || data.imageUrl || data.img ? [data.image || data.imageUrl || data.img] : undefined),
+                  category: rawCategory,
+                  categoryId: typeof rawCategoryId === 'string' ? rawCategoryId : null,
+                  parentCategoryId: typeof rawParentCategoryId === 'string' ? rawParentCategoryId : null,
+                  parentCategory: rawParentCategory,
+                  subcategoryId: typeof rawSubcategoryId === 'string' ? rawSubcategoryId : null,
+                  subcategory: rawSubcategory,
+                  unit: data.unit || data.measurement || '1 pc',
+                  stockCount: `${qty} left`,
+                  quantity: qty,
+                  marketType: isLocal ? 'local' : 'global',
+                  marketMode: isLocal ? 'local' : 'global',
+                  inventoryCollection: isLocal ? 'inventory' : 'global_inventory',
+                  storePrices: [
+                    {
+                      shopId: seller.id,
+                      shopName: seller.shopName || seller.name || 'Store',
+                      price,
+                      inStock: true,
+                    },
+                  ],
+                };
+
+                allProducts.push(productItem);
+
+                // Check if valid discount offer
+                const offer = parseProductOffer(
+                  { id: docSnap.id, ...data },
+                  {
+                    id: seller.id,
+                    shopName: seller.shopName || seller.name,
+                    shopImage: seller.shopImage || seller.profileImage || seller.image,
+                    marketType: isLocal ? 'local' : 'global',
+                  },
+                );
+
+                if (offer) {
+                  allOffers.push(offer);
+                }
+              });
+
+              // Shop is verified ONLY if it has at least 1 valid product
+              if (validProductCount > 0) {
+                verifiedSellers.push(seller);
+              }
+            } catch (shopErr) {
+              console.log(
+                `[DISCOVERY] Inventory read error for seller ${seller.id}:`,
+                shopErr?.message,
+              );
             }
           }
 
-          if (withinRadius) {
-            list.push({
-              id: docSnap.id,
-              ...data,
-              distanceKm: dist,
-              lat: sellerCoords?.lat,
-              lon: sellerCoords?.lon,
-            });
-          }
-        });
-        // Sort stores by closest distance first
-        list.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
-        setSellers(list);
-      },
-      error => console.log('Seller query error:', error)
-    );
+          if (cancelled) return;
 
-    return () => unsubscribe();
-  }, [customerLat, customerLon, radiusKm, marketMode]);
-
-  // 4. Load Products from Selected Shop or Nearby Sellers
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchProducts = async () => {
-      setLoadingProducts(true);
-      try {
-        const targetSellers = selectedShop
-          ? [selectedShop]
-          : sellers.slice(0, 10);
-
-        if (targetSellers.length === 0) {
-          if (!cancelled) {
-            setProducts(marketMode === 'local' ? [] : CURATED_DEFAULT_PRODUCTS);
-            setLoadingProducts(false);
-          }
-          return;
-        }
-
-        const targetCollection = marketMode === 'global' ? 'global_inventory' : 'inventory';
-        const allItems = [];
-
-        for (const seller of targetSellers) {
-          const invSnap = await getDocs(
-            collection(db, 'users', seller.id, targetCollection)
+          // Sort stores alphabetically (distance sorting completely removed)
+          verifiedSellers.sort((a, b) =>
+            (a.shopName || a.name || '').localeCompare(b.shopName || b.name || ''),
           );
 
-          invSnap.forEach(docSnap => {
-            const data = docSnap.data();
-            const qty = Number(data.quantity || data.stock || 1);
-            if (qty <= 0) return;
+          // Sort discount offers by discount percentage descending
+          allOffers.sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
 
-            allItems.push({
-              id: docSnap.id,
-              shopId: seller.id,
-              shopName: seller.shopName || seller.name || 'Local Shop',
-              distanceKm: seller.distanceKm,
-              name: data.itemName || data.name || 'Product',
-              price: Number(data.salesPrice || data.price || 0),
-              mrp: Number(data.mrp || data.regularPrice || 0),
-              img: data.image || data.imageUrl || data.img || null,
-              category: data.category || 'General',
-              unit: data.unit || data.measurement || '1 pc',
-              stockCount: `${qty} left`,
-              quantity: qty,
-              storePrices: [
-                {
-                  shopId: seller.id,
-                  shopName: seller.shopName || seller.name || 'Store',
-                  price: Number(data.salesPrice || data.price || 0),
-                  inStock: true,
-                  distanceKm: seller.distanceKm || '1.1',
-                },
-              ],
-            });
-          });
+          setSellers(verifiedSellers);
+          setProducts(allProducts);
+          setOffers(allOffers);
+        } catch (err) {
+          console.log('[DISCOVERY] Discovery error:', err);
+          if (!cancelled) {
+            setSellers([]);
+            setProducts([]);
+            setOffers([]);
+          }
+        } finally {
+          if (!cancelled) {
+            setLoadingProducts(false);
+            setLoadingOffers(false);
+          }
         }
-
+      },
+      err => {
+        console.log('[DISCOVERY] Sellers listener error:', err);
         if (!cancelled) {
-          setProducts(allItems.length > 0 ? allItems : (marketMode === 'local' ? [] : CURATED_DEFAULT_PRODUCTS));
+          setSellers([]);
+          setProducts([]);
+          setOffers([]);
           setLoadingProducts(false);
+          setLoadingOffers(false);
         }
-      } catch (err) {
-        console.log('Product fetch error:', err);
-        if (!cancelled) {
-          setProducts(marketMode === 'local' ? [] : CURATED_DEFAULT_PRODUCTS);
-          setLoadingProducts(false);
-        }
-      }
-    };
+      },
+    );
 
-    fetchProducts();
     return () => {
       cancelled = true;
+      unsubscribe();
     };
-  }, [selectedShop, sellers, marketMode]);
+  }, [customerCity, marketMode, db]);
 
   // Cart actions
   const syncCartToFirestore = async updatedCart => {
@@ -781,62 +1211,6 @@ export default function LiquidGlassHome({ navigation }) {
 
   const isOrderActive = activeOrders.length > 0;
 
-  // Extract and tally categories dynamically from Upstage POS seller inventory & catalog
-  const upstageCategories = useMemo(() => {
-    const catMap = new Map();
-
-    // 1. Initialize with standard Upstage POS retail categories
-    (DEFAULT_RAIL_CATEGORIES || []).forEach(cat => {
-      catMap.set(cat.id.toLowerCase(), {
-        ...cat,
-        count: 0,
-      });
-    });
-
-    // 2. Tally items across live products loaded from Upstage POS / Firestore
-    (products || []).forEach(p => {
-      const rawCat = (p.category || '').trim();
-      if (!rawCat || rawCat.toLowerCase() === 'all') return;
-      const catLower = rawCat.toLowerCase();
-
-      let found = false;
-      if (catMap.has(catLower)) {
-        catMap.get(catLower).count += 1;
-        found = true;
-      } else {
-        for (const [id, c] of catMap.entries()) {
-          if (c.keywords && c.keywords.some(k => catLower.includes(k) || k.includes(catLower))) {
-            c.count += 1;
-            found = true;
-            break;
-          }
-        }
-      }
-
-      // If merchant created a brand new custom category in Upstage POS app
-      if (!found) {
-        catMap.set(catLower, {
-          id: catLower,
-          name: rawCat,
-          shortName: rawCat,
-          nameTa: rawCat,
-          icon: 'pricetag-outline',
-          keywords: [catLower],
-          count: 1,
-        });
-      }
-    });
-
-    // Sort categories: categories with active items in stock first, then alphabetically
-    const allCats = Array.from(catMap.values());
-    allCats.sort((a, b) => {
-      if (b.count !== a.count) return b.count - a.count;
-      return a.name.localeCompare(b.name);
-    });
-
-    return allCats;
-  }, [products]);
-
   // Filtered & Sorted Products
   const finalProductList = useMemo(() => {
     let list = [...products];
@@ -850,19 +1224,9 @@ export default function LiquidGlassHome({ navigation }) {
       );
     }
 
-    // Filter by Category (Upstage POS categories)
-    if (selectedCategory && selectedCategory.id !== 'all') {
-      const catId = (selectedCategory.id || '').toLowerCase();
-      const catName = (selectedCategory.name || selectedCategory.shortName || '').toLowerCase();
-      const catKeywords = selectedCategory.keywords || [catId, catName];
-      list = list.filter(p => {
-        const pCat = (p.category || '').toLowerCase();
-        const pName = (p.name || '').toLowerCase();
-        if (pCat === catId || pCat === catName || pCat.includes(catId) || catId.includes(pCat)) {
-          return true;
-        }
-        return catKeywords.some(k => pName.includes(k) || pCat.includes(k));
-      });
+    // Filter by Category using schema-aware ID, synonym, and keyword matching
+    if (selectedCategory) {
+      list = list.filter(product => isProductMatchingCategory(product, selectedCategory));
     }
 
     // Filter by Search Query (Optimized multi-term matching across English & Tamil names, shops, categories)
@@ -907,6 +1271,23 @@ export default function LiquidGlassHome({ navigation }) {
     return list;
   }, [products, selectedShop, selectedCategory, searchQuery, selectedType, priceRange, sortBy]);
 
+  // Filtered discount offers based on selected shop if any
+  const displayedOffers = useMemo(() => {
+    if (!selectedShop) return offers;
+    return offers.filter(o => o.shopId === selectedShop.id);
+  }, [offers, selectedShop]);
+
+  const handleSelectOffer = useCallback(
+    offer => {
+      if (!offer) return;
+      navigation.navigate('ProductDetailsScreen', {
+        product: offer,
+        marketMode,
+      });
+    },
+    [navigation, marketMode],
+  );
+
   // Cart totals for floating sticky bar
   const cartItemsArray = Object.values(cart || {});
   const cartTotalItems = cartItemsArray.reduce((sum, item) => sum + (Number(item.qty) || 1), 0);
@@ -950,7 +1331,11 @@ export default function LiquidGlassHome({ navigation }) {
         onSearchChange={setSearchQuery}
         selectedCategory={selectedCategory}
         onSelectCategory={setSelectedCategory}
-        categories={upstageCategories}
+        categories={categories}
+        categoriesLoading={categoriesLoading}
+        categoriesError={categoriesError}
+        onRetryCategories={retryLoadCategories}
+        onLoadSubcategories={loadSubcategories}
         language={language}
         isDarkMode={isDarkMode}
         navigation={navigation}
@@ -982,9 +1367,6 @@ export default function LiquidGlassHome({ navigation }) {
           shops={sellers}
           selectedShop={selectedShop}
           onSelectShop={setSelectedShop}
-          categories={DEFAULT_RAIL_CATEGORIES}
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
           language={language}
           marketMode={marketMode}
           isDarkMode={isDarkMode}
@@ -996,13 +1378,13 @@ export default function LiquidGlassHome({ navigation }) {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.catalogScrollContent}
           >
-            {/* 1. NEARBY LOCAL STORES SECTION */}
+            {/* 1. OFFERS SECTION (Horizontal Scrolling Discount Deals) */}
             <TopShopsCarousel
-              shops={sellers}
-              selectedShop={selectedShop}
-              onSelectShop={setSelectedShop}
+              offers={displayedOffers}
+              loadingOffers={loadingOffers}
+              onSelectOffer={handleSelectOffer}
+              cityName={customerCity}
               language={language}
-              radiusKm={radiusKm}
               marketMode={marketMode}
               isDarkMode={isDarkMode}
             />
@@ -1038,6 +1420,25 @@ export default function LiquidGlassHome({ navigation }) {
                 <Text style={[styles.emptyGridSub, { color: isDarkMode ? '#94A3B8' : '#64748B' }]}>
                   {isTamil ? 'வடிகட்டிகளை மாற்றி முயற்சிக்கவும்' : 'Try clearing filters or choosing another category'}
                 </Text>
+                {Boolean(selectedCategory || selectedShop) && (
+                  <TouchableOpacity
+                    style={{
+                      marginTop: 12,
+                      paddingHorizontal: 16,
+                      paddingVertical: 8,
+                      borderRadius: 20,
+                      backgroundColor: theme.neonGreen,
+                    }}
+                    onPress={() => {
+                      setSelectedCategory(null);
+                      setSelectedShop(null);
+                    }}
+                  >
+                    <Text style={{ color: '#050906', fontWeight: '800', fontSize: 13 }}>
+                      {isTamil ? 'அனைத்து பொருட்களையும் காட்டு' : 'Show all products'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ) : (
               <View style={styles.productGrid}>
@@ -1061,7 +1462,10 @@ export default function LiquidGlassHome({ navigation }) {
                       ]}
                       activeOpacity={0.88}
                       onPress={() => {
-                        setComparingProduct(item);
+                        navigation.navigate('ProductDetailsScreen', {
+                          product: item,
+                          marketMode,
+                        });
                       }}
                     >
                       {/* Top Image Box */}
@@ -1075,6 +1479,15 @@ export default function LiquidGlassHome({ navigation }) {
                           style={styles.cardProductImage}
                           resizeMode="cover"
                         />
+
+                        {/* Real Discount Badge on Grid Card if discounted */}
+                        {item.hasDiscount && item.discountBadge ? (
+                          <View style={styles.gridDiscountBadge}>
+                            <Text style={styles.gridDiscountBadgeText}>
+                              {item.discountBadge}
+                            </Text>
+                          </View>
+                        ) : null}
 
                         {/* Favorite Heart Button */}
                         <TouchableOpacity
@@ -1157,9 +1570,9 @@ export default function LiquidGlassHome({ navigation }) {
                           <Text style={[styles.cardPrice, { color: isDarkMode ? '#FFFFFF' : '#0F172A' }]}>
                             ₹{item.price}
                           </Text>
-                          {item.mrp > item.price && (
-                            <Text style={styles.cardMrp}>₹{item.mrp}</Text>
-                          )}
+                          {item.hasDiscount && item.originalPrice > item.price ? (
+                            <Text style={styles.cardMrp}>₹{item.originalPrice}</Text>
+                          ) : null}
                         </View>
 
                         {/* Product Title */}
@@ -1361,6 +1774,22 @@ const styles = StyleSheet.create({
   cardProductImage: {
     width: '100%',
     height: '100%',
+  },
+  gridDiscountBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    zIndex: 3,
+  },
+  gridDiscountBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   heartBtn: {
     position: 'absolute',

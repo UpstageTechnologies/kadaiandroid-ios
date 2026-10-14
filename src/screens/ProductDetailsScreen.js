@@ -41,6 +41,7 @@ import {
 
 import {AuthContext} from '../context/AuthContext';
 import {ThemeContext} from '../context/ThemeContext';
+import {calculateEffectivePricing} from '../utils/pricing';
 
 const {width: SCREEN_WIDTH, height: SCREEN_HEIGHT} = Dimensions.get('window');
 
@@ -48,6 +49,42 @@ const {width: SCREEN_WIDTH, height: SCREEN_HEIGHT} = Dimensions.get('window');
 /* =========================================================
    HELPERS
 ========================================================= */
+
+const normalizeCity = city => {
+  if (!city || typeof city !== 'string') return '';
+  return city
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]/g, '');
+};
+
+const getSellerCity = sellerData => {
+  if (!sellerData) return '';
+  const rawCity =
+    sellerData.city ||
+    sellerData.address?.city ||
+    sellerData.storeAddress?.city ||
+    sellerData.businessCity ||
+    sellerData.storeCity ||
+    sellerData.district ||
+    sellerData.address?.district ||
+    '';
+  return typeof rawCity === 'string' ? rawCity.trim() : '';
+};
+
+const isGlobalEligibleSeller = sellerData => {
+  if (!sellerData) return false;
+  return (
+    sellerData.isGlobalSeller === true ||
+    sellerData.globalSeller === true ||
+    sellerData.enableGlobal === true ||
+    sellerData.allowGlobalOrders === true ||
+    sellerData.isGlobal === true ||
+    sellerData.deliveryScope === 'global' ||
+    sellerData.worldwide === true ||
+    sellerData.role === 'seller'
+  );
+};
 
 const normalize = value =>
   String(value || '')
@@ -107,6 +144,7 @@ const normalizeProduct = (
   sellerData = {},
 ) => {
   const data = doc.data() || {};
+  const pricing = calculateEffectivePricing(data);
 
   const imageList = Array.isArray(data.images)
     ? data.images.filter(Boolean)
@@ -182,6 +220,12 @@ const normalizeProduct = (
 
     category:
       data.category ||
+      data.categoryName ||
+      '',
+
+    subcategory:
+      data.subcategory ||
+      data.subCategory ||
       '',
 
     itemNo:
@@ -195,21 +239,23 @@ const normalizeProduct = (
       data.measurement ||
       '',
 
-    price: Number(
-      data.salesPrice ||
-        data.price ||
-        data.sellingPrice ||
-        0,
-    ),
+    price: pricing.price,
 
-    originalPrice: Number(
-      data.mrp ||
-        data.originalPrice ||
-        data.regularPrice ||
-        data.price ||
-        data.salesPrice ||
-        0,
-    ),
+    salesPrice: pricing.price,
+
+    originalPrice: pricing.originalPrice,
+
+    originalSalesPrice: pricing.originalPrice,
+
+    hasDiscount: pricing.hasDiscount,
+
+    discountPercent: pricing.discountPercent,
+
+    discountBadge: pricing.discountBadge,
+
+    discountType: pricing.discountType,
+
+    discountValue: pricing.discountAmount,
 
     quantity: Number(
       data.quantity || 0,
@@ -349,12 +395,44 @@ export default function ProductDetailsScreen({
     route?.params?.marketMode || 'local';
 
 
+  const initialProduct = useMemo(() => {
+    if (!routeProduct?.id) return routeProduct;
+    const pricing = calculateEffectivePricing(routeProduct);
+    return {
+      ...routeProduct,
+      price: pricing.price,
+      salesPrice: pricing.price,
+      originalPrice: pricing.originalPrice,
+      originalSalesPrice: pricing.originalPrice,
+      hasDiscount: pricing.hasDiscount,
+      discountPercent: pricing.discountPercent,
+      discountBadge: pricing.discountBadge,
+    };
+  }, [routeProduct]);
+
   /* =======================================================
      STATE
   ======================================================= */
 
   const [product, setProduct] =
-    useState(routeProduct);
+    useState(initialProduct);
+
+  useEffect(() => {
+    if (routeProduct?.id) {
+      const pricing = calculateEffectivePricing(routeProduct);
+      setProduct(prev => ({
+        ...prev,
+        ...routeProduct,
+        price: pricing.price,
+        salesPrice: pricing.price,
+        originalPrice: pricing.originalPrice,
+        originalSalesPrice: pricing.originalPrice,
+        hasDiscount: pricing.hasDiscount,
+        discountPercent: pricing.discountPercent,
+        discountBadge: pricing.discountBadge,
+      }));
+    }
+  }, [routeProduct]);
 
   const [offers, setOffers] =
     useState([]);
@@ -591,7 +669,22 @@ const playCartPopAnimation = () => {
               sellerData.address || {};
 
             /*
-             * Current shop should also be allowed.
+             * Active check: exclude inactive or suspended sellers unless current shop
+             */
+            const isSellerActive =
+              sellerData.active !== false &&
+              sellerData.isActive !== false &&
+              sellerData.deleted !== true &&
+              sellerData.isDeleted !== true &&
+              sellerData.status !== 'suspended' &&
+              sellerData.status !== 'inactive';
+
+            if (!isSellerActive && sellerDoc.id !== routeProduct.shopId) {
+              return;
+            }
+
+            /*
+             * Current shop is always included
              */
             if (
               sellerDoc.id ===
@@ -608,61 +701,17 @@ const playCartPopAnimation = () => {
             }
 
             /*
-             * GLOBAL
-             *
-             * All sellers are considered.
+             * GLOBAL MODE
              */
             if (
               marketMode === 'global'
             ) {
-              sellers.push({
-                id: sellerDoc.id,
-                data: sellerData,
-                address: sellerAddress,
-                distance: 999,
-              });
-
-              return;
-            }
-
-            /*
-             * LOCAL
-             */
-            const customerAddress =
-              customerData?.address || {};
-
-            const customerLat =
-              customerAddress?.lat;
-
-            const customerLon =
-              customerAddress?.lon;
-
-            const hasGPS =
-              Number.isFinite(
-                Number(customerLat),
-              ) &&
-              Number.isFinite(
-                Number(customerLon),
-              );
-
-            /*
-             * GPS → within 3 KM
-             */
-            if (hasGPS) {
-              const distance =
-                calculateDistance(
-                  customerLat,
-                  customerLon,
-                  sellerAddress?.lat,
-                  sellerAddress?.lon,
-                );
-
-              if (distance <= 3) {
+              if (isGlobalEligibleSeller(sellerData)) {
                 sellers.push({
                   id: sellerDoc.id,
                   data: sellerData,
                   address: sellerAddress,
-                  distance,
+                  distance: 999,
                 });
               }
 
@@ -670,136 +719,79 @@ const playCartPopAnimation = () => {
             }
 
             /*
-             * Manual location fallback
+             * LOCAL MODE: Location-first discovery matching
              */
-            const customerArea =
-              normalize(
-                customerAddress?.area,
-              );
+            const customerAddress =
+              customerData?.address || {};
 
             const customerCity =
-              normalize(
-                customerAddress?.city,
-              );
+              customerAddress?.city ||
+              customerAddress?.district ||
+              customerAddress?.area ||
+              '';
+            const normCustomerCity = normalizeCity(customerCity);
 
-            const customerDistrict =
-              normalize(
-                customerAddress?.district,
-              );
+            const sellerCity = getSellerCity(sellerData);
+            const normSellerCity = normalizeCity(sellerCity);
 
-            const customerState =
-              normalize(
-                customerAddress?.state,
-              );
+            let isMatched = false;
+            let distance = 0;
 
-            const sellerArea =
-              normalize(
-                sellerAddress?.area,
-              );
-
-            const sellerCity =
-              normalize(
-                sellerAddress?.city,
-              );
-
-            const sellerDistrict =
-              normalize(
-                sellerAddress?.district,
-              );
-
-            const sellerState =
-              normalize(
-                sellerAddress?.state,
-              );
-
-            /*
-             * Area match
-             */
-            if (
-              customerArea &&
-              sellerArea &&
-              customerArea === sellerArea &&
-              (!customerCity ||
-                !sellerCity ||
-                customerCity ===
-                  sellerCity) &&
-              (!customerDistrict ||
-                !sellerDistrict ||
-                customerDistrict ===
-                  sellerDistrict) &&
-              (!customerState ||
-                !sellerState ||
-                customerState ===
-                  sellerState)
-            ) {
-              sellers.push({
-                id: sellerDoc.id,
-                data: sellerData,
-                address: sellerAddress,
-                distance: 0,
-              });
-
-              return;
+            if (normCustomerCity && normSellerCity) {
+              isMatched =
+                normSellerCity === normCustomerCity ||
+                normSellerCity.includes(normCustomerCity) ||
+                normCustomerCity.includes(normSellerCity);
             }
 
-            /*
-             * City fallback
-             */
-            if (
-              !customerArea &&
-              customerCity &&
-              sellerCity &&
-              customerCity ===
-                sellerCity
-            ) {
-              sellers.push({
-                id: sellerDoc.id,
-                data: sellerData,
-                address: sellerAddress,
-                distance: 0,
-              });
+            const customerLat = customerAddress?.lat;
+            const customerLon = customerAddress?.lon;
+            const sellerLat = sellerAddress?.lat;
+            const sellerLon = sellerAddress?.lon;
 
-              return;
+            if (
+              Number.isFinite(Number(customerLat)) &&
+              Number.isFinite(Number(customerLon)) &&
+              Number.isFinite(Number(sellerLat)) &&
+              Number.isFinite(Number(sellerLon))
+            ) {
+              distance = calculateDistance(
+                customerLat,
+                customerLon,
+                sellerLat,
+                sellerLon,
+              );
+              if (distance <= 25) {
+                isMatched = true;
+              }
             }
 
-            /*
-             * District fallback
-             */
-            if (
-              !customerArea &&
-              !customerCity &&
-              customerDistrict &&
-              sellerDistrict &&
-              customerDistrict ===
-                sellerDistrict
-            ) {
-              sellers.push({
-                id: sellerDoc.id,
-                data: sellerData,
-                address: sellerAddress,
-                distance: 0,
-              });
+            // Fallback area/district/state matching if not already matched
+            if (!isMatched) {
+              const customerArea = normalize(customerAddress?.area);
+              const sellerArea = normalize(sellerAddress?.area);
+              const customerDistrict = normalize(customerAddress?.district);
+              const sellerDistrict = normalize(sellerAddress?.district);
+              const customerState = normalize(customerAddress?.state);
+              const sellerState = normalize(sellerAddress?.state);
 
-              return;
+              if (customerArea && sellerArea && customerArea === sellerArea) {
+                isMatched = true;
+              } else if (customerDistrict && sellerDistrict && customerDistrict === sellerDistrict) {
+                isMatched = true;
+              } else if (customerState && sellerState && customerState === sellerState) {
+                isMatched = true;
+              } else if (!normCustomerCity && !customerLat) {
+                isMatched = true;
+              }
             }
 
-            /*
-             * State fallback
-             */
-            if (
-              !customerArea &&
-              !customerCity &&
-              !customerDistrict &&
-              customerState &&
-              sellerState &&
-              customerState ===
-                sellerState
-            ) {
+            if (isMatched) {
               sellers.push({
                 id: sellerDoc.id,
                 data: sellerData,
                 address: sellerAddress,
-                distance: 0,
+                distance,
               });
             }
           },
@@ -1272,37 +1264,14 @@ playCartPopAnimation();
 
 
   /* =======================================================
-     PRICE DISCOUNT
+     EFFECTIVE PRICING
   ======================================================= */
 
-  const discountPercent =
-    useMemo(() => {
-      const original =
-        Number(
-          product.originalPrice ||
-            0,
-        );
+  const productPricing = useMemo(() => {
+    return calculateEffectivePricing(product);
+  }, [product]);
 
-      const price =
-        Number(product.price || 0);
-
-      if (
-        original <= 0 ||
-        price <= 0 ||
-        original <= price
-      ) {
-        return 0;
-      }
-
-      return Math.round(
-        ((original - price) /
-          original) *
-          100,
-      );
-    }, [
-      product.originalPrice,
-      product.price,
-    ]);
+  const discountPercent = productPricing.discountPercent;
 
 
   /* =======================================================
@@ -1515,24 +1484,32 @@ playCartPopAnimation();
               )}
             </Text>
 
-            {offer.originalPrice >
+            {offer.hasDiscount &&
+            offer.originalPrice >
             offer.price ? (
-              <Text
-                style={[
-                  styles.offerOldPrice,
-                  {
-                    color:
-                      secondaryText,
-                  },
-                ]}
-              >
-                ₹
-                {Number(
-                  offer.originalPrice,
-                ).toLocaleString(
-                  'en-IN',
-                )}
-              </Text>
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
+                <Text
+                  style={[
+                    styles.offerOldPrice,
+                    {
+                      color:
+                        secondaryText,
+                    },
+                  ]}
+                >
+                  ₹
+                  {Number(
+                    offer.originalPrice,
+                  ).toLocaleString(
+                    'en-IN',
+                  )}
+                </Text>
+                {offer.discountBadge ? (
+                  <Text style={{fontSize: 10, fontWeight: '700', color: '#16a34a'}}>
+                    {offer.discountBadge}
+                  </Text>
+                ) : null}
+              </View>
             ) : null}
           </View>
 
@@ -1886,7 +1863,7 @@ playCartPopAnimation();
             }
           />
 
-          {discountPercent > 0 ? (
+          {productPricing.hasDiscount && productPricing.discountBadge ? (
             <View
               style={
                 styles.discountBadge
@@ -1897,7 +1874,7 @@ playCartPopAnimation();
                   styles.discountBadgeText
                 }
               >
-                {discountPercent}% OFF
+                {productPricing.discountBadge}
               </Text>
             </View>
           ) : null}
@@ -2109,14 +2086,15 @@ playCartPopAnimation();
               >
                 ₹
                 {Number(
-                  product.price || 0,
+                  productPricing.price || 0,
                 ).toLocaleString(
                   'en-IN',
                 )}
               </Text>
 
-              {product.originalPrice >
-              product.price ? (
+              {productPricing.hasDiscount &&
+              productPricing.originalPrice >
+              productPricing.price ? (
                 <Text
                   style={[
                     styles.oldPrice,
@@ -2128,7 +2106,7 @@ playCartPopAnimation();
                 >
                   ₹
                   {Number(
-                    product.originalPrice,
+                    productPricing.originalPrice,
                   ).toLocaleString(
                     'en-IN',
                   )}
@@ -2136,15 +2114,14 @@ playCartPopAnimation();
               ) : null}
             </View>
 
-            {discountPercent >
-            0 ? (
+            {productPricing.hasDiscount &&
+            productPricing.discountBadge ? (
               <Text
                 style={
                   styles.saveText
                 }
               >
-                Save{' '}
-                {discountPercent}%
+                Save {productPricing.discountBadge}
               </Text>
             ) : null}
           </View>

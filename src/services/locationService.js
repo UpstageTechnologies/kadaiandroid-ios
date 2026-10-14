@@ -126,6 +126,88 @@ export const CITY_COORDINATES = {
   gurgaon: { lat: 28.4595, lon: 77.0266, state: 'Haryana', district: 'Gurugram' },
   noida: { lat: 28.5355, lon: 77.3910, state: 'Uttar Pradesh', district: 'Gautam Buddha Nagar' },
   pondicherry: { lat: 11.9416, lon: 79.8083, state: 'Puducherry', district: 'Puducherry' },
+  puducherry: { lat: 11.9416, lon: 79.8083, state: 'Puducherry', district: 'Puducherry' },
+  tirupati: { lat: 13.6288, lon: 79.4192, state: 'Andhra Pradesh', district: 'Tirupati' },
+  guntur: { lat: 16.3067, lon: 80.4365, state: 'Andhra Pradesh', district: 'Guntur' },
+  nellore: { lat: 14.4426, lon: 79.9865, state: 'Andhra Pradesh', district: 'SPSR Nellore' },
+  kurnool: { lat: 15.8281, lon: 78.0373, state: 'Andhra Pradesh', district: 'Kurnool' },
+  kadapa: { lat: 14.4673, lon: 78.8242, state: 'Andhra Pradesh', district: 'YSR Kadapa' },
+  kakinada: { lat: 16.9891, lon: 82.2475, state: 'Andhra Pradesh', district: 'Kakinada' },
+  rajahmundry: { lat: 17.0005, lon: 81.8040, state: 'Andhra Pradesh', district: 'East Godavari' },
+  anantapur: { lat: 14.6819, lon: 77.6006, state: 'Andhra Pradesh', district: 'Anantapur' },
+  warangal: { lat: 17.9689, lon: 79.5941, state: 'Telangana', district: 'Warangal' },
+  nizamabad: { lat: 18.6725, lon: 78.0941, state: 'Telangana', district: 'Nizamabad' },
+  khammam: { lat: 17.2473, lon: 80.1514, state: 'Telangana', district: 'Khammam' },
+  bhubaneswar: { lat: 20.2961, lon: 85.8245, state: 'Odisha', district: 'Khurda' },
+  cuttack: { lat: 20.4625, lon: 85.8830, state: 'Odisha', district: 'Cuttack' },
+  rourkela: { lat: 22.2604, lon: 84.8536, state: 'Odisha', district: 'Sundargarh' },
+  dehradun: { lat: 30.3165, lon: 78.0322, state: 'Uttarakhand', district: 'Dehradun' },
+  haridwar: { lat: 29.9457, lon: 78.1642, state: 'Uttarakhand', district: 'Haridwar' },
+  shimla: { lat: 31.1048, lon: 77.1734, state: 'Himachal Pradesh', district: 'Shimla' },
+  jammu: { lat: 32.7266, lon: 74.8570, state: 'Jammu and Kashmir', district: 'Jammu' },
+  udaipur: { lat: 24.5854, lon: 73.7125, state: 'Rajasthan', district: 'Udaipur' },
+  ajmer: { lat: 26.4499, lon: 74.6399, state: 'Rajasthan', district: 'Ajmer' },
+  bikaner: { lat: 28.0229, lon: 73.3119, state: 'Rajasthan', district: 'Bikaner' },
+  alwar: { lat: 27.5530, lon: 76.6346, state: 'Rajasthan', district: 'Alwar' },
+  bhilwara: { lat: 25.3407, lon: 74.6313, state: 'Rajasthan', district: 'Bhilwara' },
+  jalandhar: { lat: 31.3260, lon: 75.5762, state: 'Punjab', district: 'Jalandhar' },
+  patiala: { lat: 30.3398, lon: 76.3869, state: 'Punjab', district: 'Patiala' },
+  bathinda: { lat: 30.2110, lon: 74.9455, state: 'Punjab', district: 'Bathinda' },
+  panipat: { lat: 29.3909, lon: 76.9635, state: 'Haryana', district: 'Panipat' },
+  karnal: { lat: 29.6857, lon: 76.9905, state: 'Haryana', district: 'Karnal' },
+  rohtak: { lat: 28.8955, lon: 76.6066, state: 'Haryana', district: 'Rohtak' },
+  sonipat: { lat: 28.9931, lon: 77.0151, state: 'Haryana', district: 'Sonipat' },
+  aligarh: { lat: 27.8974, lon: 78.0880, state: 'Uttar Pradesh', district: 'Aligarh' },
+  bareilly: { lat: 28.3670, lon: 79.4304, state: 'Uttar Pradesh', district: 'Bareilly' },
+  gorakhpur: { lat: 26.7606, lon: 83.3732, state: 'Uttar Pradesh', district: 'Gorakhpur' },
+  jhansi: { lat: 25.4484, lon: 78.5685, state: 'Uttar Pradesh', district: 'Jhansi' },
+  moradabad: { lat: 28.8356, lon: 78.7747, state: 'Uttar Pradesh', district: 'Moradabad' },
+  saharanpur: { lat: 29.9679, lon: 77.5510, state: 'Uttar Pradesh', district: 'Saharanpur' },
+  firozabad: { lat: 27.1592, lon: 78.3957, state: 'Uttar Pradesh', district: 'Firozabad' },
+  mathura: { lat: 27.4924, lon: 77.6737, state: 'Uttar Pradesh', district: 'Mathura' },
+  muzaffarnagar: { lat: 29.4727, lon: 77.7085, state: 'Uttar Pradesh', district: 'Muzaffarnagar' },
+  kolhapur: { lat: 16.7050, lon: 74.2433, state: 'Maharashtra', district: 'Kolhapur' },
+  solapur: { lat: 17.6599, lon: 75.9064, state: 'Maharashtra', district: 'Solapur' },
+  amravati: { lat: 20.9374, lon: 77.7796, state: 'Maharashtra', district: 'Amravati' },
+  nanded: { lat: 19.1383, lon: 77.3210, state: 'Maharashtra', district: 'Nanded' },
+  sangli: { lat: 16.8524, lon: 74.5815, state: 'Maharashtra', district: 'Sangli' },
+  jalgaon: { lat: 21.0077, lon: 75.5626, state: 'Maharashtra', district: 'Jalgaon' },
+  latur: { lat: 18.4088, lon: 76.5604, state: 'Maharashtra', district: 'Latur' },
+  dhule: { lat: 20.9042, lon: 74.7749, state: 'Maharashtra', district: 'Dhule' },
+  ahmednagar: { lat: 19.0952, lon: 74.7496, state: 'Maharashtra', district: 'Ahmednagar' },
+  gandhinagar: { lat: 23.2156, lon: 72.6369, state: 'Gujarat', district: 'Gandhinagar' },
+  bhavnagar: { lat: 21.7645, lon: 72.1519, state: 'Gujarat', district: 'Bhavnagar' },
+  jamnagar: { lat: 22.4707, lon: 70.0577, state: 'Gujarat', district: 'Jamnagar' },
+  junagadh: { lat: 21.5222, lon: 70.4579, state: 'Gujarat', district: 'Junagadh' },
+  anand: { lat: 22.5645, lon: 72.9289, state: 'Gujarat', district: 'Anand' },
+  bhilai: { lat: 21.1938, lon: 81.3509, state: 'Chhattisgarh', district: 'Durg' },
+  bilaspur: { lat: 22.0797, lon: 82.1409, state: 'Chhattisgarh', district: 'Bilaspur' },
+  bokaro: { lat: 23.6693, lon: 86.1511, state: 'Jharkhand', district: 'Bokaro' },
+  jamshedpur: { lat: 22.8046, lon: 86.2029, state: 'Jharkhand', district: 'East Singhbhum' },
+  gaya: { lat: 24.7914, lon: 85.0002, state: 'Bihar', district: 'Gaya' },
+  bhagalpur: { lat: 25.2425, lon: 86.9842, state: 'Bihar', district: 'Bhagalpur' },
+  muzaffarpur: { lat: 26.1209, lon: 85.3647, state: 'Bihar', district: 'Muzaffarpur' },
+  asansol: { lat: 23.6739, lon: 86.9524, state: 'West Bengal', district: 'Paschim Bardhaman' },
+  siliguri: { lat: 26.7271, lon: 88.3953, state: 'West Bengal', district: 'Darjeeling' },
+  durgapur: { lat: 23.5204, lon: 87.3119, state: 'West Bengal', district: 'Paschim Bardhaman' },
+  kollam: { lat: 8.8932, lon: 76.6141, state: 'Kerala', district: 'Kollam' },
+  alappuzha: { lat: 9.4981, lon: 76.3388, state: 'Kerala', district: 'Alappuzha' },
+  palakkad: { lat: 10.7867, lon: 76.6548, state: 'Kerala', district: 'Palakkad' },
+  kottayam: { lat: 9.5916, lon: 76.5222, state: 'Kerala', district: 'Kottayam' },
+  kannur: { lat: 11.8745, lon: 75.3704, state: 'Kerala', district: 'Kannur' },
+  davanagere: { lat: 14.4644, lon: 75.9218, state: 'Karnataka', district: 'Davanagere' },
+  bellary: { lat: 15.1394, lon: 76.9214, state: 'Karnataka', district: 'Ballari' },
+  ballari: { lat: 15.1394, lon: 76.9214, state: 'Karnataka', district: 'Ballari' },
+  shivamogga: { lat: 13.9299, lon: 75.5681, state: 'Karnataka', district: 'Shivamogga' },
+  tumkur: { lat: 13.3379, lon: 77.1010, state: 'Karnataka', district: 'Tumakuru' },
+  ujjan: { lat: 23.1765, lon: 75.7885, state: 'Madhya Pradesh', district: 'Ujjain' },
+  ujjain: { lat: 23.1765, lon: 75.7885, state: 'Madhya Pradesh', district: 'Ujjain' },
+  sagar: { lat: 23.8388, lon: 78.7378, state: 'Madhya Pradesh', district: 'Sagar' },
+  ratlam: { lat: 23.3315, lon: 75.0367, state: 'Madhya Pradesh', district: 'Ratlam' },
+  rewa: { lat: 24.5362, lon: 81.3037, state: 'Madhya Pradesh', district: 'Rewa' },
+  agartala: { lat: 23.8315, lon: 91.2868, state: 'Tripura', district: 'West Tripura' },
+  imphal: { lat: 24.8170, lon: 93.9368, state: 'Manipur', district: 'Imphal West' },
+  aizawl: { lat: 23.7271, lon: 92.7176, state: 'Mizoram', district: 'Aizawl' },
 };
 
 // Popular areas and verified neighborhoods with high accuracy coordinates
@@ -338,6 +420,61 @@ export function getSellerCoordinates(data) {
   return null;
 }
 
+// Helper: Determine geographical center coordinates for any selected Area/City/District/State
+export function getCoordinatesForAreaOrCity(cityName, districtName, stateName, streetName) {
+  // 1. Try area resolved within city
+  if (streetName && cityName) {
+    const areaRes = resolveAreaCoordinates(cityName, streetName);
+    if (areaRes && Number.isFinite(Number(areaRes.lat)) && Number.isFinite(Number(areaRes.lon))) {
+      return { lat: Number(areaRes.lat), lon: Number(areaRes.lon) };
+    }
+  }
+
+  // 2. Try clean city name
+  const cKey = (cityName || '').trim().toLowerCase();
+  if (cKey && CITY_COORDINATES[cKey]) {
+    return { lat: CITY_COORDINATES[cKey].lat, lon: CITY_COORDINATES[cKey].lon };
+  }
+
+  // 3. Partial / substring match on CITY_COORDINATES
+  if (cKey) {
+    for (const [key, coords] of Object.entries(CITY_COORDINATES)) {
+      if (cKey.includes(key) || key.includes(cKey)) {
+        return { lat: coords.lat, lon: coords.lon };
+      }
+    }
+  }
+
+  // 4. District matching
+  const dKey = (districtName || '').trim().toLowerCase();
+  if (dKey && CITY_COORDINATES[dKey]) {
+    return { lat: CITY_COORDINATES[dKey].lat, lon: CITY_COORDINATES[dKey].lon };
+  }
+  if (dKey) {
+    for (const [key, coords] of Object.entries(CITY_COORDINATES)) {
+      if (dKey.includes(key) || key.includes(dKey)) {
+        return { lat: coords.lat, lon: coords.lon };
+      }
+    }
+  }
+
+  // 5. State matching
+  const sKey = (stateName || '').trim().toLowerCase();
+  if (sKey && CITY_COORDINATES[sKey]) {
+    return { lat: CITY_COORDINATES[sKey].lat, lon: CITY_COORDINATES[sKey].lon };
+  }
+  if (sKey) {
+    for (const [key, coords] of Object.entries(CITY_COORDINATES)) {
+      if (sKey.includes(key) || key.includes(sKey)) {
+        return { lat: coords.lat, lon: coords.lon };
+      }
+    }
+  }
+
+  // 6. Default fallback
+  return { lat: DEFAULT_USER_LOCATION.lat, lon: DEFAULT_USER_LOCATION.lon };
+}
+
 // Normalize address payload ensuring high accuracy coordinates and valid fields
 export function normalizeAddressPayload(addr) {
   if (!addr || typeof addr !== 'object') {
@@ -368,7 +505,7 @@ export function normalizeAddressPayload(addr) {
   let lat = Number(rawLat);
   let lon = Number(rawLon);
 
-  // 2. Identify city/area keywords to verify or snap coordinates
+  // 2. Identify city/area keywords to verify coordinates if needed
   const rawCity =
     (typeof addr.city === 'string' && addr.city) ||
     (typeof addr.district === 'string' && addr.district) ||
@@ -390,25 +527,7 @@ export function normalizeAddressPayload(addr) {
     }
   }
 
-  // Also check formattedAddress or street if city wasn't matched
-  if (!matchedCityCoords) {
-    const fullText = (
-      (typeof addr.formattedAddress === 'string' ? addr.formattedAddress : '') +
-      ' ' +
-      (typeof addr.fullAddress === 'string' ? addr.fullAddress : '') +
-      ' ' +
-      (typeof addr.street === 'string' ? addr.street : '')
-    ).toLowerCase();
-
-    for (const [k, coords] of Object.entries(CITY_COORDINATES)) {
-      if (fullText.includes(k)) {
-        matchedCityCoords = coords;
-        break;
-      }
-    }
-  }
-
-  // 3. Resolve and validate coordinates
+  // 3. Resolve coordinates safely based on pin selection
   const isCoordsValid =
     Number.isFinite(lat) &&
     Number.isFinite(lon) &&
@@ -418,33 +537,58 @@ export function normalizeAddressPayload(addr) {
     lon <= 180 &&
     !(lat === 0 && lon === 0);
 
-  if (!isCoordsValid) {
-    if (matchedCityCoords) {
-      lat = matchedCityCoords.lat;
-      lon = matchedCityCoords.lon;
-    } else {
-      lat = DEFAULT_USER_LOCATION.lat;
-      lon = DEFAULT_USER_LOCATION.lon;
+  let finalLat = null;
+  let finalLon = null;
+  let finalHasPin = false;
+  let finalGoogleMapsLink = (addr.googleMapsLink && String(addr.googleMapsLink).trim()) || '';
+
+  // Explicit check for whether pin was chosen / active
+  if (addr.hasPin === true || (isCoordsValid && addr.hasPin !== false && (finalGoogleMapsLink || addr.locationSource === 'map' || addr.locationSource === 'gps'))) {
+    finalLat = isCoordsValid ? lat : (matchedCityCoords ? matchedCityCoords.lat : DEFAULT_USER_LOCATION.lat);
+    finalLon = isCoordsValid ? lon : (matchedCityCoords ? matchedCityCoords.lon : DEFAULT_USER_LOCATION.lon);
+    finalHasPin = true;
+    if (!finalGoogleMapsLink && Number.isFinite(finalLat) && Number.isFinite(finalLon)) {
+      finalGoogleMapsLink = `https://www.google.com/maps?q=${finalLat},${finalLon}`;
     }
-  } else if (matchedCityCoords) {
-    // If coordinates differ from the specified city by > 18 km, snap to the city coordinates
-    // (This prevents device GPS from Sattur overriding a Virudhunagar / Madurai / Chennai saved address)
-    const distFromCity = calculateDistance(lat, lon, matchedCityCoords.lat, matchedCityCoords.lon);
-    if (distFromCity === null || distFromCity > 18) {
-      lat = matchedCityCoords.lat;
-      lon = matchedCityCoords.lon;
+  } else if (addr.hasPin === false || addr.lat === null || addr.lon === null) {
+    // Customer explicitly skipped or cleared pin
+    finalLat = null;
+    finalLon = null;
+    finalHasPin = false;
+    finalGoogleMapsLink = '';
+  } else if (isCoordsValid && addr.hasPin !== false) {
+    // Existing address with valid coordinates
+    finalLat = lat;
+    finalLon = lon;
+    finalHasPin = true;
+    if (!finalGoogleMapsLink) {
+      finalGoogleMapsLink = `https://www.google.com/maps?q=${finalLat},${finalLon}`;
     }
+  } else if (addr.id === 'loc_default_padanthal') {
+    finalLat = DEFAULT_USER_LOCATION.lat;
+    finalLon = DEFAULT_USER_LOCATION.lon;
+    finalHasPin = true;
+    finalGoogleMapsLink = `https://www.google.com/maps?q=${finalLat},${finalLon}`;
+  } else {
+    // No pin and no coordinates provided
+    finalLat = null;
+    finalLon = null;
+    finalHasPin = false;
+    finalGoogleMapsLink = '';
   }
 
   const resolvedTag = (addr.tag || addr.locationType || 'Home').trim();
-  const resolvedCity = (addr.city || matchedCityCoords?.district || 'Sattur').trim();
-  const resolvedDistrict = (addr.district || matchedCityCoords?.district || 'Virudhunagar').trim();
-  const resolvedState = (addr.state || matchedCityCoords?.state || 'Tamil Nadu').trim();
-  const resolvedStreet = (addr.street || addr.area || resolvedCity).trim();
+  const resolvedCity = (addr.city ? String(addr.city).trim() : (matchedCityCoords?.district || 'Sattur'));
+  const resolvedDistrict = (addr.district ? String(addr.district).trim() : (matchedCityCoords?.district || 'Virudhunagar'));
+  const resolvedState = (addr.state ? String(addr.state).trim() : (matchedCityCoords?.state || 'Tamil Nadu'));
+  const resolvedArea = (addr.area || addr.street || resolvedCity).trim();
+  const resolvedLandmark = (addr.landmark || '').trim();
+  const resolvedStreet = (addr.street || resolvedArea).trim();
 
   const parts = [
     addr.completeAddress,
     resolvedStreet,
+    resolvedLandmark || null,
     resolvedCity,
     resolvedDistrict,
     resolvedState,
@@ -462,17 +606,20 @@ export function normalizeAddressPayload(addr) {
     tag: resolvedTag,
     locationType: resolvedTag,
     label: addr.label || `${resolvedTag} (${resolvedCity})`,
-    area: addr.area || resolvedStreet,
+    area: resolvedArea,
+    landmark: resolvedLandmark,
     street: resolvedStreet,
     city: resolvedCity,
     district: resolvedDistrict,
     state: resolvedState,
     pincode: addr.pincode || (matchedCityCoords ? '626001' : '626203'),
     country: addr.country || 'India',
-    lat,
-    lon,
-    latitude: lat,
-    longitude: lon,
+    lat: finalLat,
+    lon: finalLon,
+    latitude: finalLat,
+    longitude: finalLon,
+    hasPin: finalHasPin,
+    googleMapsLink: finalGoogleMapsLink,
     formattedAddress,
     fullAddress: formattedAddress,
     receiverName: addr.receiverName || 'Customer',

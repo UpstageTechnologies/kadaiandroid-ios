@@ -3,6 +3,7 @@ import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -30,6 +31,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AuthContext } from '../../context/AuthContext';
 import AppHeader from '../../components/layout/AppHeader';
 import { colors } from '../../theme/tokens';
+import { saveActiveLocation } from '../../services/locationService';
 
 
 const validCoords = (lat, lon) => {
@@ -50,6 +52,7 @@ const locationLabel = address => {
 
   const parts = [
     address.area,
+    address.landmark,
     address.city,
     address.district,
     address.state,
@@ -192,28 +195,25 @@ export default function LocationPickerScreen({ navigation }) {
   const [lon, setLon] = useState(null);
 
   const [countryId, setCountryId] = useState('');
-
-const [countryOptions, setCountryOptions] = useState([]);
+  const [countryOptions, setCountryOptions] = useState([]);
   const [state, setState] = useState('');
   const [district, setDistrict] = useState('');
   const [city, setCity] = useState('');
   const [area, setArea] = useState('');
+  const [landmark, setLandmark] = useState('');
 
   const [stateOptions, setStateOptions] = useState([]);
   const [districtOptions, setDistrictOptions] = useState([]);
   const [cityOptions, setCityOptions] = useState([]);
-  const [areaOptions, setAreaOptions] = useState([]);
 
   const [statesLoading, setStatesLoading] = useState(false);
   const [districtsLoading, setDistrictsLoading] = useState(false);
   const [citiesLoading, setCitiesLoading] = useState(false);
-  const [areasLoading, setAreasLoading] = useState(false);
 
   const requestIds = useRef({
     states: 0,
     districts: 0,
     cities: 0,
-    areas: 0,
   });
 
   const activeAddress = useMemo(() => {
@@ -226,66 +226,64 @@ const [countryOptions, setCountryOptions] = useState([]);
 
   const activeIsRegistration =
     !savedLocations.some(item => item.isActive === true);
-const loadCountries = async () => {
-  try {
-    const snapshot = await getDocs(collection(db, 'location_master'));
 
-    const countries = snapshot.docs
-      .map(doc => {
-        const data = doc.data() || {};
+  const loadCountries = async () => {
+    try {
+      let countries = [];
+      try {
+        const snapshot = await getDocs(collection(db, 'location_master'));
+        countries = snapshot.docs
+          .map(doc => {
+            const data = doc.data() || {};
+            return {
+              id: doc.id,
+              value: doc.id,
+              label: String(data.name || doc.id).trim(),
+              code: String(data.code || '').trim(),
+              isActive: data.isActive !== false,
+            };
+          })
+          .filter(item => item.isActive && item.label)
+          .sort((a, b) => a.label.localeCompare(b.label));
+      } catch (e) {
+        console.log('[LOCATION PICKER] location_master read note:', e?.message);
+      }
 
-        return {
-          id: doc.id,
-          value: doc.id,
-          label: String(data.name || doc.id).trim(),
-          code: String(data.code || '').trim(),
-          isActive: data.isActive !== false,
-        };
-      })
-      .filter(item => item.isActive && item.label)
-      .sort((a, b) =>
-        a.label.localeCompare(b.label),
-      );
+      // If location_master is empty, provide default country
+      if (countries.length === 0) {
+        countries = [
+          { id: 'IN', value: 'IN', label: 'India', code: 'IN', isActive: true },
+        ];
+      }
 
-    setCountryOptions(countries);
+      setCountryOptions(countries);
+    } catch (error) {
+      console.error('[LOCATION PICKER] COUNTRIES ERROR:', error);
+      setCountryOptions([
+        { id: 'IN', value: 'IN', label: 'India', code: 'IN', isActive: true },
+      ]);
+    }
+  };
 
-    console.log(
-      '[LOCATION PICKER] COUNTRIES:',
-      countries,
-    );
-  } catch (error) {
-    console.error(
-      '[LOCATION PICKER] COUNTRIES ERROR:',
-      error,
-    );
+  const resetForm = () => {
+    setMode(null);
+    setLat(null);
+    setLon(null);
+    setGpsResolvedAddress(null);
+    setGeoResolveError('');
+
+    setCountryId('');
+    setState('');
+    setDistrict('');
+    setCity('');
+    setArea('');
+    setLandmark('');
 
     setCountryOptions([]);
-
-    Alert.alert(
-      'Location Error',
-      'Unable to load countries. Please try again.',
-    );
-  }
-};
- const resetForm = () => {
-  setMode(null);
-  setLat(null);
-  setLon(null);
-  setGpsResolvedAddress(null);
-  setGeoResolveError('');
-
-  setCountryId('');
-  setState('');
-  setDistrict('');
-  setCity('');
-  setArea('');
-
-  setCountryOptions([]);
-  setStateOptions([]);
-  setDistrictOptions([]);
-  setCityOptions([]);
-  setAreaOptions([]);
-};
+    setStateOptions([]);
+    setDistrictOptions([]);
+    setCityOptions([]);
+  };
 
   const openAddLocation = () => {
   resetForm();
@@ -319,330 +317,231 @@ const loadCountries = async () => {
     return unsubscribe;
   }, [user?.uid]);
 
-const loadStates = async selectedCountryId => {
-  const requestId = ++requestIds.current.states;
+  const loadStates = async selectedCountryId => {
+    const requestId = ++requestIds.current.states;
 
-  if (!selectedCountryId) {
-    setStateOptions([]);
-    return;
-  }
-
-  try {
-    setStatesLoading(true);
-
-    const snapshot = await getDocs(
-      collection(db, 'location_master', selectedCountryId, 'states'),
-    );
-
-    if (requestId !== requestIds.current.states) return;
-
-    const options = snapshot.docs
-      .map(doc => {
-        const data = doc.data() || {};
-
-        const value = String(
-          data.name || data.state || doc.id,
-        ).trim();
-
-        return value
-          ? {
-              label: value,
-              value,
-              id: doc.id,
-            }
-          : null;
-      })
-      .filter(Boolean)
-      .sort((a, b) =>
-        a.label.localeCompare(b.label),
-      );
-
-    setStateOptions(options);
-
-    console.log(
-      '[LOCATION PICKER] STATES:',
-      selectedCountryId,
-      options,
-    );
-  } catch (error) {
-    console.error(
-      '[LOCATION PICKER] STATES ERROR:',
-      error,
-    );
-
-    setStateOptions([]);
-
-    Alert.alert(
-      'Location Error',
-      'Unable to load states. Please try again.',
-    );
-  } finally {
-    if (requestId === requestIds.current.states) {
-      setStatesLoading(false);
+    if (!selectedCountryId) {
+      setStateOptions([]);
+      return;
     }
-  }
-};
 
-  const loadDistricts = async (
-  selectedCountryId,
-  selectedState,
-) => {
-  const requestId = ++requestIds.current.districts;
+    try {
+      setStatesLoading(true);
 
-  if (!selectedCountryId || !selectedState) {
-    setDistrictOptions([]);
-    return;
-  }
+      let options = [];
+      // 1. Try root `states` collection first
+      try {
+        const rootSnap = await getDocs(collection(db, 'states'));
+        if (!rootSnap.empty) {
+          options = rootSnap.docs
+            .map(doc => {
+              const data = doc.data() || {};
+              const value = String(data.name || data.state || doc.id).trim();
+              return value
+                ? { label: value, value, id: doc.id, source: 'root' }
+                : null;
+            })
+            .filter(Boolean);
+        }
+      } catch (e) {
+        console.log('[LOCATION PICKER] Root states read note:', e?.message);
+      }
 
-  try {
-    setDistrictsLoading(true);
+      // 2. Fallback to location_master/{selectedCountryId}/states
+      if (options.length === 0) {
+        const snapshot = await getDocs(
+          collection(db, 'location_master', selectedCountryId, 'states'),
+        );
+        options = snapshot.docs
+          .map(doc => {
+            const data = doc.data() || {};
+            const value = String(data.name || data.state || doc.id).trim();
+            return value
+              ? { label: value, value, id: doc.id, source: 'location_master' }
+              : null;
+          })
+          .filter(Boolean);
+      }
 
-    const stateId = stateOptions.find(
-      item => item.value === selectedState,
-    )?.id;
+      if (requestId !== requestIds.current.states) return;
 
-    if (!stateId) {
+      options.sort((a, b) => a.label.localeCompare(b.label));
+      setStateOptions(options);
+
+      console.log('[LOCATION PICKER] STATES:', selectedCountryId, options);
+    } catch (error) {
+      console.error('[LOCATION PICKER] STATES ERROR:', error);
+      setStateOptions([]);
+      Alert.alert('Location Error', 'Unable to load states. Please try again.');
+    } finally {
+      if (requestId === requestIds.current.states) {
+        setStatesLoading(false);
+      }
+    }
+  };
+
+  const loadDistricts = async (selectedCountryId, selectedState) => {
+    const requestId = ++requestIds.current.districts;
+
+    if (!selectedCountryId || !selectedState) {
       setDistrictOptions([]);
       return;
     }
 
-    const snapshot = await getDocs(
-      collection(
-        db,
-        'location_master',
-        selectedCountryId,
-        'states',
-        stateId,
-        'districts',
-      ),
-    );
+    try {
+      setDistrictsLoading(true);
 
-    if (requestId !== requestIds.current.districts) return;
+      const stateObj = stateOptions.find(item => item.value === selectedState);
+      const stateId = stateObj?.id;
 
-    const options = snapshot.docs
-      .map(doc => {
-        const data = doc.data() || {};
+      if (!stateId) {
+        setDistrictOptions([]);
+        return;
+      }
 
-        const value = String(
-          data.name || data.district || doc.id,
-        ).trim();
+      let options = [];
 
-        return value
-          ? {
-              label: value,
-              value,
-              id: doc.id,
-            }
-          : null;
-      })
-      .filter(Boolean)
-      .sort((a, b) =>
-        a.label.localeCompare(b.label),
-      );
+      // 1. Try root collection states/{stateId}/districts
+      try {
+        const rootSnap = await getDocs(
+          collection(db, 'states', stateId, 'districts'),
+        );
+        if (!rootSnap.empty) {
+          options = rootSnap.docs
+            .map(doc => {
+              const data = doc.data() || {};
+              const value = String(data.name || data.district || doc.id).trim();
+              return value
+                ? { label: value, value, id: doc.id, source: 'root' }
+                : null;
+            })
+            .filter(Boolean);
+        }
+      } catch (e) {
+        console.log('[LOCATION PICKER] Root districts read note:', e?.message);
+      }
 
-    setDistrictOptions(options);
-  } catch (error) {
-    console.error(
-      '[LOCATION PICKER] DISTRICTS ERROR:',
-      error,
-    );
+      // 2. Fallback to location_master/{selectedCountryId}/states/{stateId}/districts
+      if (options.length === 0) {
+        const snapshot = await getDocs(
+          collection(
+            db,
+            'location_master',
+            selectedCountryId,
+            'states',
+            stateId,
+            'districts',
+          ),
+        );
+        options = snapshot.docs
+          .map(doc => {
+            const data = doc.data() || {};
+            const value = String(data.name || data.district || doc.id).trim();
+            return value
+              ? { label: value, value, id: doc.id, source: 'location_master' }
+              : null;
+          })
+          .filter(Boolean);
+      }
 
-    setDistrictOptions([]);
+      if (requestId !== requestIds.current.districts) return;
 
-    Alert.alert(
-      'Location Error',
-      'Unable to load districts. Please try again.',
-    );
-  } finally {
-    if (requestId === requestIds.current.districts) {
-      setDistrictsLoading(false);
+      options.sort((a, b) => a.label.localeCompare(b.label));
+      setDistrictOptions(options);
+    } catch (error) {
+      console.error('[LOCATION PICKER] DISTRICTS ERROR:', error);
+      setDistrictOptions([]);
+      Alert.alert('Location Error', 'Unable to load districts. Please try again.');
+    } finally {
+      if (requestId === requestIds.current.districts) {
+        setDistrictsLoading(false);
+      }
     }
-  }
-};
+  };
 
-  const loadCities = async (
-  selectedCountryId,
-  selectedState,
-  selectedDistrict,
-) => {
-  const requestId = ++requestIds.current.cities;
+  const loadCities = async (selectedCountryId, selectedState, selectedDistrict) => {
+    const requestId = ++requestIds.current.cities;
 
-  if (
-    !selectedCountryId ||
-    !selectedState ||
-    !selectedDistrict
-  ) {
-    setCityOptions([]);
-    return;
-  }
-
-  try {
-    setCitiesLoading(true);
-
-    const stateId = stateOptions.find(
-      item => item.value === selectedState,
-    )?.id;
-
-    const districtId = districtOptions.find(
-      item => item.value === selectedDistrict,
-    )?.id;
-
-    if (!stateId || !districtId) {
+    if (!selectedCountryId || !selectedState || !selectedDistrict) {
       setCityOptions([]);
       return;
     }
 
-    const snapshot = await getDocs(
-      collection(
-        db,
-        'location_master',
-        selectedCountryId,
-        'states',
-        stateId,
-        'districts',
-        districtId,
-        'cities',
-      ),
-    );
+    try {
+      setCitiesLoading(true);
 
-    if (requestId !== requestIds.current.cities) return;
+      const stateObj = stateOptions.find(item => item.value === selectedState);
+      const districtObj = districtOptions.find(item => item.value === selectedDistrict);
 
-    const options = snapshot.docs
-      .map(doc => {
-        const data = doc.data() || {};
+      const stateId = stateObj?.id;
+      const districtId = districtObj?.id;
 
-        const value = String(
-          data.name || data.city || doc.id,
-        ).trim();
+      if (!stateId || !districtId) {
+        setCityOptions([]);
+        return;
+      }
 
-        return value
-          ? {
-              label: value,
-              value,
-              id: doc.id,
-            }
-          : null;
-      })
-      .filter(Boolean)
-      .sort((a, b) =>
-        a.label.localeCompare(b.label),
-      );
+      let options = [];
 
-    setCityOptions(options);
-  } catch (error) {
-    console.error(
-      '[LOCATION PICKER] CITIES ERROR:',
-      error,
-    );
+      // 1. Try root collection states/{stateId}/districts/{districtId}/cities
+      try {
+        const rootSnap = await getDocs(
+          collection(db, 'states', stateId, 'districts', districtId, 'cities'),
+        );
+        if (!rootSnap.empty) {
+          options = rootSnap.docs
+            .map(doc => {
+              const data = doc.data() || {};
+              const value = String(data.name || data.city || doc.id).trim();
+              return value
+                ? { label: value, value, id: doc.id, source: 'root' }
+                : null;
+            })
+            .filter(Boolean);
+        }
+      } catch (e) {
+        console.log('[LOCATION PICKER] Root cities read note:', e?.message);
+      }
 
-    setCityOptions([]);
+      // 2. Fallback to location_master/{selectedCountryId}/states/{stateId}/districts/{districtId}/cities
+      if (options.length === 0) {
+        const snapshot = await getDocs(
+          collection(
+            db,
+            'location_master',
+            selectedCountryId,
+            'states',
+            stateId,
+            'districts',
+            districtId,
+            'cities',
+          ),
+        );
+        options = snapshot.docs
+          .map(doc => {
+            const data = doc.data() || {};
+            const value = String(data.name || data.city || doc.id).trim();
+            return value
+              ? { label: value, value, id: doc.id, source: 'location_master' }
+              : null;
+          })
+          .filter(Boolean);
+      }
 
-    Alert.alert(
-      'Location Error',
-      'Unable to load cities. Please try again.',
-    );
-  } finally {
-    if (requestId === requestIds.current.cities) {
-      setCitiesLoading(false);
+      if (requestId !== requestIds.current.cities) return;
+
+      options.sort((a, b) => a.label.localeCompare(b.label));
+      setCityOptions(options);
+    } catch (error) {
+      console.error('[LOCATION PICKER] CITIES ERROR:', error);
+      setCityOptions([]);
+      Alert.alert('Location Error', 'Unable to load cities. Please try again.');
+    } finally {
+      if (requestId === requestIds.current.cities) {
+        setCitiesLoading(false);
+      }
     }
-  }
-};
-
- const loadAreas = async (
-  selectedCountryId,
-  selectedState,
-  selectedDistrict,
-  selectedCity,
-) => {
-  const requestId = ++requestIds.current.areas;
-
-  if (
-    !selectedCountryId ||
-    !selectedState ||
-    !selectedDistrict ||
-    !selectedCity
-  ) {
-    setAreaOptions([]);
-    return;
-  }
-
-  try {
-    setAreasLoading(true);
-
-    const stateId = stateOptions.find(
-      item => item.value === selectedState,
-    )?.id;
-
-    const districtId = districtOptions.find(
-      item => item.value === selectedDistrict,
-    )?.id;
-
-    const cityId = cityOptions.find(
-      item => item.value === selectedCity,
-    )?.id;
-
-    if (!stateId || !districtId || !cityId) {
-      setAreaOptions([]);
-      return;
-    }
-
-    const snapshot = await getDocs(
-      collection(
-        db,
-        'location_master',
-        selectedCountryId,
-        'states',
-        stateId,
-        'districts',
-        districtId,
-        'cities',
-        cityId,
-        'areas',
-      ),
-    );
-
-    if (requestId !== requestIds.current.areas) return;
-
-    const options = snapshot.docs
-      .map(doc => {
-        const data = doc.data() || {};
-
-        const value = String(
-          data.name || data.area || doc.id,
-        ).trim();
-
-        return value
-          ? {
-              label: value,
-              value,
-              id: doc.id,
-            }
-          : null;
-      })
-      .filter(Boolean)
-      .sort((a, b) =>
-        a.label.localeCompare(b.label),
-      );
-
-    setAreaOptions(options);
-  } catch (error) {
-    console.error(
-      '[LOCATION PICKER] AREAS ERROR:',
-      error,
-    );
-
-    setAreaOptions([]);
-
-    Alert.alert(
-      'Location Error',
-      'Unable to load areas. Please try again.',
-    );
-  } finally {
-    if (requestId === requestIds.current.areas) {
-      setAreasLoading(false);
-    }
-  }
-};
+  };
 
   const requestLocationPermission = async () => {
     try {
@@ -773,24 +672,24 @@ const loadStates = async selectedCountryId => {
 };
 
   const chooseManual = () => {
-  setMode('manual');
+    setMode('manual');
 
-  setLat(null);
-  setLon(null);
+    setLat(null);
+    setLon(null);
 
-  setCountryId('');
-  setState('');
-  setDistrict('');
-  setCity('');
-  setArea('');
+    setCountryId('');
+    setState('');
+    setDistrict('');
+    setCity('');
+    setArea('');
+    setLandmark('');
 
-  setStateOptions([]);
-  setDistrictOptions([]);
-  setCityOptions([]);
-  setAreaOptions([]);
+    setStateOptions([]);
+    setDistrictOptions([]);
+    setCityOptions([]);
 
-  loadCountries();
-};
+    loadCountries();
+  };
 const [geoResolveLoading, setGeoResolveLoading] = useState(false);
 const [geoResolveError, setGeoResolveError] = useState('');
 const [gpsResolvedAddress, setGpsResolvedAddress] = useState(null);
@@ -855,11 +754,11 @@ const saveNewLocation = async () => {
         !state ||
         !district ||
         !city ||
-        !area
+        !area.trim()
       ) {
         Alert.alert(
           'Location Required',
-          'Please select Country, State, District, City and Area.',
+          'Please select Country, State, District, City and enter Area / Locality.',
         );
         return;
       }
@@ -889,19 +788,32 @@ const saveNewLocation = async () => {
       return;
     }
 
+    const manualFullAddress = mode === 'manual'
+      ? [area.trim(), landmark.trim(), city.trim(), district.trim(), state.trim()].filter(Boolean).join(', ')
+      : (resolvedAddress?.fullAddress || '');
+
+    const selectedCountryObj = countryOptions.find(c => c.value === countryId);
+    const countryLabel = mode === 'manual' ? (selectedCountryObj?.label || countryId || 'India') : (resolvedAddress?.country || 'India');
+
     const payload = {
       type: 'Location',
-      country: mode === 'manual' ? countryId : (resolvedAddress?.country || ''),
+      country: countryLabel,
+      countryId: mode === 'manual' ? countryId : '',
       state: mode === 'manual' ? state.trim() : (resolvedAddress?.state || ''),
       district: mode === 'manual' ? district.trim() : (resolvedAddress?.district || ''),
       city: mode === 'manual' ? city.trim() : (resolvedAddress?.city || ''),
       area: mode === 'manual' ? area.trim() : (resolvedAddress?.area || ''),
-      fullAddress: mode === 'manual'
-        ? ''
-        : (resolvedAddress?.fullAddress || ''),
+      landmark: mode === 'manual' ? landmark.trim() : '',
+      street: mode === 'manual' ? area.trim() : (resolvedAddress?.area || ''),
+      fullAddress: manualFullAddress,
+      formattedAddress: manualFullAddress,
       pincode: mode === 'manual' ? '' : (resolvedAddress?.pincode || ''),
-      lat: Number(lat),
-      lon: Number(lon),
+      lat: mode === 'gps' && validCoords(lat, lon) ? Number(lat) : null,
+      lon: mode === 'gps' && validCoords(lat, lon) ? Number(lon) : null,
+      latitude: mode === 'gps' && validCoords(lat, lon) ? Number(lat) : null,
+      longitude: mode === 'gps' && validCoords(lat, lon) ? Number(lon) : null,
+      hasPin: Boolean(mode === 'gps' && validCoords(lat, lon)),
+      googleMapsLink: mode === 'gps' && validCoords(lat, lon) ? `https://www.google.com/maps?q=${lat},${lon}` : '',
       locationSource: mode,
       isActive: true,
       timestamp: new Date().toISOString(),
@@ -953,6 +865,7 @@ const saveNewLocation = async () => {
       );
 
       await batch.commit();
+      await saveActiveLocation(user.uid, payload);
 
       closeAddLocation();
 
@@ -1004,27 +917,35 @@ const saveNewLocation = async () => {
         );
       });
 
+      const updatedPayload = {
+        country: address.country || '',
+        countryId: address.countryId || '',
+        state: address.state || '',
+        district: address.district || '',
+        city: address.city || '',
+        area: address.area || '',
+        landmark: address.landmark || '',
+        street: address.street || address.area || '',
+        fullAddress: address.fullAddress || '',
+        formattedAddress: address.formattedAddress || address.fullAddress || '',
+        pincode: address.pincode || '',
+        lat: hasCoordinates ? Number(address.lat) : null,
+        lon: hasCoordinates ? Number(address.lon) : null,
+        locationSource: source,
+        type: address.type || 'Location',
+        isActive: true,
+      };
+
       batch.set(
         customerRef,
         {
-          address: {
-         country: address.country || '',
-            state: address.state || '',
-            district: address.district || '',
-            city: address.city || '',
-            area: address.area || '',
-            fullAddress: address.fullAddress || '',
-            pincode: address.pincode || '',
-            lat: hasCoordinates ? Number(address.lat) : null,
-            lon: hasCoordinates ? Number(address.lon) : null,
-            locationSource: source,
-            type: address.type || 'Location',
-          },
+          address: updatedPayload,
         },
         { merge: true },
       );
 
       await batch.commit();
+      await saveActiveLocation(user.uid, updatedPayload);
 
       if (hasCoordinates) {
         const target = {
@@ -1069,12 +990,14 @@ const saveNewLocation = async () => {
         {
           address: {
             ...registrationAddress,
+            isActive: true,
           },
         },
         { merge: true },
       );
 
       await batch.commit();
+      await saveActiveLocation(user.uid, registrationAddress);
     } catch (error) {
       console.error('[LOCATION PICKER] ACTIVATE REGISTRATION ERROR:', error);
       Alert.alert(
@@ -1609,11 +1532,11 @@ const saveNewLocation = async () => {
     setDistrict('');
     setCity('');
     setArea('');
+    setLandmark('');
 
     setStateOptions([]);
     setDistrictOptions([]);
     setCityOptions([]);
-    setAreaOptions([]);
 
     loadStates(selectedId);
   },
@@ -1626,20 +1549,20 @@ const saveNewLocation = async () => {
                     placeholder: 'Select State',
                     loading: statesLoading,
                     disabled: false,
-                  onChange: item => {
-  const value = item.value;
+                    onChange: item => {
+                      const value = item.value;
 
-  setState(value);
-  setDistrict('');
-  setCity('');
-  setArea('');
+                      setState(value);
+                      setDistrict('');
+                      setCity('');
+                      setArea('');
+                      setLandmark('');
 
-  setDistrictOptions([]);
-  setCityOptions([]);
-  setAreaOptions([]);
+                      setDistrictOptions([]);
+                      setCityOptions([]);
 
-  loadDistricts(countryId, value);
-},
+                      loadDistricts(countryId, value);
+                    },
                   })}
 
                   <Text style={styles.label}>DISTRICT</Text>
@@ -1651,18 +1574,18 @@ const saveNewLocation = async () => {
                       : 'Select State first',
                     loading: districtsLoading,
                     disabled: !state,
-                   onChange: item => {
-  const value = item.value;
+                    onChange: item => {
+                      const value = item.value;
 
-  setDistrict(value);
-  setCity('');
-  setArea('');
+                      setDistrict(value);
+                      setCity('');
+                      setArea('');
+                      setLandmark('');
 
-  setCityOptions([]);
-  setAreaOptions([]);
+                      setCityOptions([]);
 
-  loadCities(countryId, state, value);
-},
+                      loadCities(countryId, state, value);
+                    },
                   })}
 
                   <Text style={styles.label}>CITY</Text>
@@ -1674,33 +1597,34 @@ const saveNewLocation = async () => {
                       : 'Select District first',
                     loading: citiesLoading,
                     disabled: !district,
-                  onChange: item => {
-  const value = item.value;
+                    onChange: item => {
+                      const value = item.value;
 
-  setCity(value);
-  setArea('');
-  setAreaOptions([]);
-
-  loadAreas(
-    countryId,
-    state,
-    district,
-    value,
-  );
-},
+                      setCity(value);
+                      setArea('');
+                      setLandmark('');
+                    },
                   })}
 
-                  <Text style={styles.label}>AREA / LOCALITY</Text>
-                  {renderDropdown({
-                    data: areaOptions,
-                    value: area,
-                    placeholder: city
-                      ? 'Select Area'
-                      : 'Select City first',
-                    loading: areasLoading,
-                    disabled: !city,
-                    onChange: item => setArea(item.value),
-                  })}
+                  <Text style={styles.label}>AREA / LOCALITY *</Text>
+                  <TextInput
+                    style={[styles.textInput, !city && styles.disabledInput]}
+                    value={area}
+                    onChangeText={setArea}
+                    placeholder={city ? 'Enter Area / Locality (e.g. Gandhi Nagar)' : 'Select City first'}
+                    placeholderTextColor="#94a3b8"
+                    editable={!!city}
+                  />
+
+                  <Text style={styles.label}>LANDMARK (OPTIONAL)</Text>
+                  <TextInput
+                    style={[styles.textInput, !city && styles.disabledInput]}
+                    value={landmark}
+                    onChangeText={setLandmark}
+                    placeholder="Enter nearby landmark (e.g. Near Bus Stand)"
+                    placeholderTextColor="#94a3b8"
+                    editable={!!city}
+                  />
 
                   <View style={styles.infoBox}>
                     <Icon
@@ -1709,7 +1633,7 @@ const saveNewLocation = async () => {
                       color="#64748b"
                     />
                     <Text style={styles.infoText}>
-                      This is a shopping location, not a delivery address.
+                      This is a shopping location for discovering local shops & deals.
                       Door number and pincode are not required.
                     </Text>
                   </View>
@@ -1723,12 +1647,12 @@ const saveNewLocation = async () => {
                     locationLoading ||
                     !mode ||
                     (mode === 'gps' && !validCoords(lat, lon)) ||
-                   (mode === 'manual' &&
-  (!countryId ||
-    !state ||
-    !district ||
-    !city ||
-    !area))) &&
+                    (mode === 'manual' &&
+                      (!countryId ||
+                        !state ||
+                        !district ||
+                        !city ||
+                        !area.trim()))) &&
                     styles.saveDisabled,
                 ]}
                 onPress={saveNewLocation}
@@ -1737,12 +1661,12 @@ const saveNewLocation = async () => {
                   locationLoading ||
                   !mode ||
                   (mode === 'gps' && !validCoords(lat, lon)) ||
-               (mode === 'manual' &&
-  (!countryId ||
-    !state ||
-    !district ||
-    !city ||
-    !area))
+                  (mode === 'manual' &&
+                    (!countryId ||
+                      !state ||
+                      !district ||
+                      !city ||
+                      !area.trim()))
                 }
               >
                 {loading ? (
@@ -2226,6 +2150,21 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5e1',
     backgroundColor: '#fff',
     paddingHorizontal: 13,
+  },
+  textInput: {
+    minHeight: 50,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    backgroundColor: '#fff',
+    paddingHorizontal: 13,
+    color: '#0f172a',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  disabledInput: {
+    opacity: 0.5,
+    backgroundColor: '#f8fafc',
   },
   disabled: {
     opacity: 0.5,
