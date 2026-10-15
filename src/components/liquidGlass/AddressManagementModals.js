@@ -1428,9 +1428,22 @@ export function DeliveryLocationFlowModal({
                       )}
                     </View>
 
-                    {isSelected && (
-                      <Ionicons name="checkmark-circle" size={18} color="#10B981" />
-                    )}
+                    <View
+                      style={[
+                        styles.iosSelectionCircle,
+                        {
+                          borderColor: isSelected
+                            ? '#10B981'
+                            : (isDarkMode ? 'rgba(148, 163, 184, 0.45)' : '#CBD5E1'),
+                          backgroundColor: isSelected
+                            ? '#10B981'
+                            : (isDarkMode ? 'rgba(255, 255, 255, 0.03)' : '#FFFFFF'),
+                        },
+                        isSelected && styles.iosSelectionCircleActive,
+                      ]}
+                    >
+                      {isSelected && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
+                    </View>
                   </View>
 
                   {/* Bottom Footer Row: Active Status Badge + Edit & Delete Action Chips */}
@@ -1790,10 +1803,22 @@ export function DeliveryLocationFlowModal({
                 },
               ]}
             >
-              {/* Radio: Myself vs Someone else */}
+              {/* Radio: Myself vs Someone else (iOS HIG Style) */}
               <View style={styles.radioGroupRow}>
                 <TouchableOpacity
-                  style={styles.radioOption}
+                  style={[
+                    styles.radioOption,
+                    {
+                      backgroundColor:
+                        contactType === 'myself'
+                          ? (isDarkMode ? 'rgba(16, 185, 129, 0.14)' : '#ECFDF5')
+                          : (isDarkMode ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC'),
+                      borderColor:
+                        contactType === 'myself'
+                          ? '#10B981'
+                          : (isDarkMode ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0'),
+                    },
+                  ]}
                   onPress={() => {
                     triggerHaptic('light');
                     setContactType('myself');
@@ -1801,22 +1826,57 @@ export function DeliveryLocationFlowModal({
                     setReceiverPhone('9442461428');
                   }}
                   activeOpacity={0.8}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: contactType === 'myself' }}
                 >
                   <View
                     style={[
                       styles.radioCircle,
-                      contactType === 'myself' && { borderColor: '#10B981' },
+                      {
+                        borderColor:
+                          contactType === 'myself'
+                            ? '#10B981'
+                            : (isDarkMode ? 'rgba(148, 163, 184, 0.45)' : '#CBD5E1'),
+                        backgroundColor:
+                          contactType === 'myself'
+                            ? '#10B981'
+                            : (isDarkMode ? 'rgba(255, 255, 255, 0.03)' : '#FFFFFF'),
+                      },
+                      contactType === 'myself' && styles.iosSelectionCircleActive,
                     ]}
                   >
                     {contactType === 'myself' && <View style={styles.radioInnerDot} />}
                   </View>
-                  <Text style={[styles.radioLabel, { color: isDarkMode ? '#FFFFFF' : '#0F172A' }]}>
+                  <Text
+                    style={[
+                      styles.radioLabel,
+                      {
+                        color:
+                          contactType === 'myself'
+                            ? (isDarkMode ? '#34D399' : '#065F46')
+                            : (isDarkMode ? '#FFFFFF' : '#0F172A'),
+                        fontWeight: contactType === 'myself' ? '700' : '600',
+                      },
+                    ]}
+                  >
                     {isTamil ? 'எனக்கு' : 'Myself'}
                   </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.radioOption}
+                  style={[
+                    styles.radioOption,
+                    {
+                      backgroundColor:
+                        contactType === 'someone'
+                          ? (isDarkMode ? 'rgba(16, 185, 129, 0.14)' : '#ECFDF5')
+                          : (isDarkMode ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC'),
+                      borderColor:
+                        contactType === 'someone'
+                          ? '#10B981'
+                          : (isDarkMode ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0'),
+                    },
+                  ]}
                   onPress={() => {
                     triggerHaptic('light');
                     setContactType('someone');
@@ -1824,16 +1884,39 @@ export function DeliveryLocationFlowModal({
                     setReceiverPhone('');
                   }}
                   activeOpacity={0.8}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: contactType === 'someone' }}
                 >
                   <View
                     style={[
                       styles.radioCircle,
-                      contactType === 'someone' && { borderColor: '#10B981' },
+                      {
+                        borderColor:
+                          contactType === 'someone'
+                            ? '#10B981'
+                            : (isDarkMode ? 'rgba(148, 163, 184, 0.45)' : '#CBD5E1'),
+                        backgroundColor:
+                          contactType === 'someone'
+                            ? '#10B981'
+                            : (isDarkMode ? 'rgba(255, 255, 255, 0.03)' : '#FFFFFF'),
+                      },
+                      contactType === 'someone' && styles.iosSelectionCircleActive,
                     ]}
                   >
                     {contactType === 'someone' && <View style={styles.radioInnerDot} />}
                   </View>
-                  <Text style={[styles.radioLabel, { color: isDarkMode ? '#FFFFFF' : '#0F172A' }]}>
+                  <Text
+                    style={[
+                      styles.radioLabel,
+                      {
+                        color:
+                          contactType === 'someone'
+                            ? (isDarkMode ? '#34D399' : '#065F46')
+                            : (isDarkMode ? '#FFFFFF' : '#0F172A'),
+                        fontWeight: contactType === 'someone' ? '700' : '600',
+                      },
+                    ]}
+                  >
                     {isTamil ? 'மற்றவருக்கு' : 'Someone else'}
                   </Text>
                 </TouchableOpacity>
@@ -1929,11 +2012,27 @@ export function DeliveryLocationFlowModal({
                           setSelectedTag(opt.id);
                         }}
                       >
-                        <Ionicons
-                          name={opt.icon}
-                          size={13}
-                          color={isSelected ? '#10B981' : (isDarkMode ? '#94A3B8' : '#64748B')}
-                        />
+                        <View
+                          style={[
+                            styles.iosTagCheckSm,
+                            {
+                              borderColor: isSelected
+                                ? '#10B981'
+                                : (isDarkMode ? 'rgba(148, 163, 184, 0.4)' : '#CBD5E1'),
+                              backgroundColor: isSelected ? '#10B981' : 'transparent',
+                            },
+                          ]}
+                        >
+                          {isSelected ? (
+                            <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+                          ) : (
+                            <Ionicons
+                              name={opt.icon}
+                              size={9}
+                              color={isDarkMode ? '#94A3B8' : '#64748B'}
+                            />
+                          )}
+                        </View>
                         <Text
                           style={[
                             styles.tagChipText,
@@ -3600,28 +3699,56 @@ const styles = StyleSheet.create({
   radioGroupRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 24,
+    gap: 10,
     marginBottom: 14,
   },
   radioOption: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 9,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1.2,
   },
   radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.8,
     borderColor: '#94A3B8',
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioInnerDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#10B981',
+    width: 8.5,
+    height: 8.5,
+    borderRadius: 4.25,
+    backgroundColor: '#FFFFFF',
+  },
+  iosSelectionCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iosSelectionCircleActive: {
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.28,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  iosTagCheckSm: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   radioLabel: {
     fontSize: 13.5,

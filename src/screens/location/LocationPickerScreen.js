@@ -1434,12 +1434,23 @@ const saveNewLocation = async () => {
                   ]}
                   onPress={useCurrentLocation}
                   disabled={locationLoading}
+                  activeOpacity={0.85}
                 >
-                  <Icon
-                    name="crosshairs-gps"
-                    size={25}
-                    color={mode === 'gps' ? colors.brand : '#475569'}
-                  />
+                  <View style={styles.methodCardTopRow}>
+                    <Icon
+                      name="crosshairs-gps"
+                      size={25}
+                      color={mode === 'gps' ? colors.brand : '#475569'}
+                    />
+                    <View
+                      style={[
+                        styles.iosRadioCircle,
+                        mode === 'gps' && styles.iosRadioCircleActive,
+                      ]}
+                    >
+                      {mode === 'gps' && <View style={styles.iosRadioInnerDot} />}
+                    </View>
+                  </View>
                   <Text style={styles.methodTitle}>
                     Use Current Location
                   </Text>
@@ -1454,12 +1465,23 @@ const saveNewLocation = async () => {
                     mode === 'manual' && styles.methodCardActive,
                   ]}
                   onPress={chooseManual}
+                  activeOpacity={0.85}
                 >
-                  <Icon
-                    name="map-marker-outline"
-                    size={25}
-                    color={mode === 'manual' ? colors.brand : '#475569'}
-                  />
+                  <View style={styles.methodCardTopRow}>
+                    <Icon
+                      name="map-marker-outline"
+                      size={25}
+                      color={mode === 'manual' ? colors.brand : '#475569'}
+                    />
+                    <View
+                      style={[
+                        styles.iosRadioCircle,
+                        mode === 'manual' && styles.iosRadioCircleActive,
+                      ]}
+                    >
+                      {mode === 'manual' && <View style={styles.iosRadioInnerDot} />}
+                    </View>
+                  </View>
                   <Text style={styles.methodTitle}>
                     Add New Address
                   </Text>
@@ -2053,9 +2075,40 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
+  methodCardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  iosRadioCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.8,
+    borderColor: '#cbd5e1',
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iosRadioCircleActive: {
+    borderColor: colors.brand,
+    backgroundColor: colors.brand,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  iosRadioInnerDot: {
+    width: 8.5,
+    height: 8.5,
+    borderRadius: 4.25,
+    backgroundColor: '#ffffff',
+  },
   methodCardActive: {
     borderColor: colors.brand,
     backgroundColor: '#fffaf0',
+    borderWidth: 1.5,
   },
   methodTitle: {
     marginTop: 10,

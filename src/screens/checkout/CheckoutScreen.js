@@ -319,6 +319,9 @@ await deleteDoc(cartRef);
                 <Text style={styles.codTitle}>Cash on Delivery (COD)</Text>
                 <Text style={styles.codSub}>Pay securely with cash upon receiving delivery.</Text>
               </View>
+              <View style={styles.iosRadioActive}>
+                <View style={styles.iosRadioInnerDot} />
+              </View>
             </View>
           </View>
 
@@ -362,11 +365,28 @@ const styles = StyleSheet.create({
   },
   codBox: { 
     flexDirection: 'row', 
-    backgroundColor: colors.brandSoft, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: '#C7D7FE',
+    backgroundColor: colors.brandSoft, padding: spacing.md, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.brand,
     alignItems: 'center' 
   },
   paymentIcon: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   codTitle: { ...type.cardTitle, color: colors.ink }, codSub: { ...type.label, fontWeight: '400', color: colors.muted, marginTop: 2 },
+  iosRadioActive: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.8,
+    borderColor: colors.brand,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
+  },
+  iosRadioInnerDot: {
+    width: 8.5,
+    height: 8.5,
+    borderRadius: 4.25,
+    backgroundColor: '#FFFFFF',
+  },
   summaryBox: { 
     backgroundColor: colors.surface, padding: spacing.lg, marginHorizontal: spacing.md, marginTop: spacing.md, borderRadius: radius.lg, ...shadow.card
   },

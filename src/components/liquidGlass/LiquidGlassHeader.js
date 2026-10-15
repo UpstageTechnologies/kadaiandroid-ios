@@ -2315,7 +2315,7 @@ export const LiquidGlassHeader = ({
                           },
                           !selectedCategory && [
                             styles.categoryCardActive,
-                            { borderColor: theme.neonGreen, backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.12)' : '#DCFCE7' },
+                            { borderColor: theme.neonGreen, backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.14)' : '#DCFCE7' },
                           ],
                         ]}
                         onPress={() => {
@@ -2329,6 +2329,19 @@ export const LiquidGlassHeader = ({
                           <Text style={[styles.categoryCardName, { color: theme.textWhite }]} numberOfLines={1}>
                             {isTamil ? 'அனைத்தும்' : 'All Categories'}
                           </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.iosCheckboxSm,
+                            {
+                              borderColor: !selectedCategory
+                                ? '#10B981'
+                                : (isDarkMode ? 'rgba(148, 163, 184, 0.4)' : '#CBD5E1'),
+                              backgroundColor: !selectedCategory ? '#10B981' : 'transparent',
+                            },
+                          ]}
+                        >
+                          {!selectedCategory && <Ionicons name="checkmark" size={11} color="#FFFFFF" />}
                         </View>
                       </TouchableOpacity>
                     )}
@@ -2381,7 +2394,7 @@ export const LiquidGlassHeader = ({
                             },
                             isSelected && [
                               styles.categoryCardActive,
-                              { borderColor: theme.neonGreen, backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.12)' : '#DCFCE7' },
+                              { borderColor: theme.neonGreen, backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.14)' : '#DCFCE7' },
                             ],
                           ]}
                           onPress={() => openCategory(category)}
@@ -2403,7 +2416,13 @@ export const LiquidGlassHeader = ({
                               {displayName}
                             </Text>
                           </View>
-                          <Ionicons name="chevron-forward" size={14} color={isDarkMode ? '#64748B' : '#94A3B8'} />
+                          {isSelected ? (
+                            <View style={[styles.iosCheckboxSm, { borderColor: '#10B981', backgroundColor: '#10B981' }]}>
+                              <Ionicons name="checkmark" size={11} color="#FFFFFF" />
+                            </View>
+                          ) : (
+                            <Ionicons name="chevron-forward" size={14} color={isDarkMode ? '#64748B' : '#94A3B8'} />
+                          )}
                         </TouchableOpacity>
                       );
                     })}
@@ -2460,7 +2479,7 @@ export const LiquidGlassHeader = ({
                           },
                           selectedCategory?.id === activeCategoryParent.id && selectedCategory?.level !== 'subcategory' && [
                             styles.categoryCardActive,
-                            { borderColor: theme.neonGreen, backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.12)' : '#DCFCE7' },
+                            { borderColor: theme.neonGreen, backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.14)' : '#DCFCE7' },
                           ],
                         ]}
                         onPress={() => selectParentCategory(activeCategoryParent)}
@@ -2471,6 +2490,25 @@ export const LiquidGlassHeader = ({
                           <Text style={[styles.categoryCardName, { color: theme.textWhite }]} numberOfLines={1}>
                             {isTamil ? `அனைத்து ${activeCategoryParent.nameTa || activeCategoryParent.name}` : `All ${activeCategoryParent.name}`}
                           </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.iosCheckboxSm,
+                            {
+                              borderColor:
+                                selectedCategory?.id === activeCategoryParent.id && selectedCategory?.level !== 'subcategory'
+                                  ? '#10B981'
+                                  : (isDarkMode ? 'rgba(148, 163, 184, 0.4)' : '#CBD5E1'),
+                              backgroundColor:
+                                selectedCategory?.id === activeCategoryParent.id && selectedCategory?.level !== 'subcategory'
+                                  ? '#10B981'
+                                  : 'transparent',
+                            },
+                          ]}
+                        >
+                          {selectedCategory?.id === activeCategoryParent.id && selectedCategory?.level !== 'subcategory' && (
+                            <Ionicons name="checkmark" size={11} color="#FFFFFF" />
+                          )}
                         </View>
                       </TouchableOpacity>
                     )}
@@ -2493,7 +2531,7 @@ export const LiquidGlassHeader = ({
                             },
                             isSelected && [
                               styles.categoryCardActive,
-                              { borderColor: theme.neonGreen, backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.12)' : '#DCFCE7' },
+                              { borderColor: theme.neonGreen, backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.14)' : '#DCFCE7' },
                             ],
                           ]}
                           onPress={() => {
@@ -2517,6 +2555,19 @@ export const LiquidGlassHeader = ({
                               {displayName}
                             </Text>
                           </View>
+                          <View
+                            style={[
+                              styles.iosCheckboxSm,
+                              {
+                                borderColor: isSelected
+                                  ? '#10B981'
+                                  : (isDarkMode ? 'rgba(148, 163, 184, 0.4)' : '#CBD5E1'),
+                                backgroundColor: isSelected ? '#10B981' : 'transparent',
+                              },
+                            ]}
+                          >
+                            {isSelected && <Ionicons name="checkmark" size={11} color="#FFFFFF" />}
+                          </View>
                         </TouchableOpacity>
                       );
                     })}
@@ -2539,12 +2590,20 @@ export const LiquidGlassHeader = ({
                         key={opt.key}
                         style={[
                           styles.filterOptionRow,
-                          isOptSelected && { backgroundColor: 'rgba(16, 185, 129, 0.1)' },
+                          {
+                            borderBottomColor: isDarkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.05)',
+                          },
+                          isOptSelected && {
+                            backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.12)' : '#DCFCE7',
+                            borderRadius: 12,
+                            borderBottomColor: 'transparent',
+                          },
                         ]}
                         onPress={() => {
                           if (onSortChange) onSortChange(opt.key);
                           handleClosePanel();
                         }}
+                        activeOpacity={0.75}
                       >
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                           <Ionicons name={opt.icon} size={18} color={isOptSelected ? '#10B981' : '#9CA3AF'} />
@@ -2552,7 +2611,22 @@ export const LiquidGlassHeader = ({
                             {isTamil ? opt.labelTa : opt.label}
                           </Text>
                         </View>
-                        {isOptSelected && <Ionicons name="checkmark-circle" size={18} color="#10B981" />}
+                        <View
+                          style={[
+                            styles.iosRadioOuter,
+                            {
+                              borderColor: isOptSelected
+                                ? '#10B981'
+                                : (isDarkMode ? 'rgba(148, 163, 184, 0.45)' : '#CBD5E1'),
+                              backgroundColor: isOptSelected
+                                ? '#10B981'
+                                : (isDarkMode ? 'rgba(255, 255, 255, 0.03)' : '#FFFFFF'),
+                            },
+                            isOptSelected && styles.iosRadioOuterActive,
+                          ]}
+                        >
+                          {isOptSelected && <View style={styles.iosRadioInnerDot} />}
+                        </View>
                       </TouchableOpacity>
                     );
                   })}
@@ -2574,12 +2648,20 @@ export const LiquidGlassHeader = ({
                         key={opt.key}
                         style={[
                           styles.filterOptionRow,
-                          isOptSelected && { backgroundColor: 'rgba(16, 185, 129, 0.1)' },
+                          {
+                            borderBottomColor: isDarkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.05)',
+                          },
+                          isOptSelected && {
+                            backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.12)' : '#DCFCE7',
+                            borderRadius: 12,
+                            borderBottomColor: 'transparent',
+                          },
                         ]}
                         onPress={() => {
                           if (onSelectType) onSelectType(opt.key);
                           handleClosePanel();
                         }}
+                        activeOpacity={0.75}
                       >
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                           <Ionicons name={opt.icon} size={18} color={isOptSelected ? '#10B981' : '#9CA3AF'} />
@@ -2587,7 +2669,22 @@ export const LiquidGlassHeader = ({
                             {isTamil ? opt.labelTa : opt.label}
                           </Text>
                         </View>
-                        {isOptSelected && <Ionicons name="checkmark-circle" size={18} color="#10B981" />}
+                        <View
+                          style={[
+                            styles.iosRadioOuter,
+                            {
+                              borderColor: isOptSelected
+                                ? '#10B981'
+                                : (isDarkMode ? 'rgba(148, 163, 184, 0.45)' : '#CBD5E1'),
+                              backgroundColor: isOptSelected
+                                ? '#10B981'
+                                : (isDarkMode ? 'rgba(255, 255, 255, 0.03)' : '#FFFFFF'),
+                            },
+                            isOptSelected && styles.iosRadioOuterActive,
+                          ]}
+                        >
+                          {isOptSelected && <View style={styles.iosRadioInnerDot} />}
+                        </View>
                       </TouchableOpacity>
                     );
                   })}
@@ -2609,12 +2706,20 @@ export const LiquidGlassHeader = ({
                         key={opt.key}
                         style={[
                           styles.filterOptionRow,
-                          isOptSelected && { backgroundColor: 'rgba(16, 185, 129, 0.1)' },
+                          {
+                            borderBottomColor: isDarkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.05)',
+                          },
+                          isOptSelected && {
+                            backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.12)' : '#DCFCE7',
+                            borderRadius: 12,
+                            borderBottomColor: 'transparent',
+                          },
                         ]}
                         onPress={() => {
                           if (onSelectPriceRange) onSelectPriceRange(opt.key);
                           handleClosePanel();
                         }}
+                        activeOpacity={0.75}
                       >
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                           <Ionicons name={opt.icon} size={18} color={isOptSelected ? '#10B981' : '#9CA3AF'} />
@@ -2622,7 +2727,22 @@ export const LiquidGlassHeader = ({
                             {isTamil ? opt.labelTa : opt.label}
                           </Text>
                         </View>
-                        {isOptSelected && <Ionicons name="checkmark-circle" size={18} color="#10B981" />}
+                        <View
+                          style={[
+                            styles.iosRadioOuter,
+                            {
+                              borderColor: isOptSelected
+                                ? '#10B981'
+                                : (isDarkMode ? 'rgba(148, 163, 184, 0.45)' : '#CBD5E1'),
+                              backgroundColor: isOptSelected
+                                ? '#10B981'
+                                : (isDarkMode ? 'rgba(255, 255, 255, 0.03)' : '#FFFFFF'),
+                            },
+                            isOptSelected && styles.iosRadioOuterActive,
+                          ]}
+                        >
+                          {isOptSelected && <View style={styles.iosRadioInnerDot} />}
+                        </View>
                       </TouchableOpacity>
                     );
                   })}
@@ -2792,41 +2912,70 @@ export const LiquidGlassHeader = ({
               <Text style={[styles.checkoutCardTitle, { color: theme.textWhite, marginBottom: 10 }]}>
                 {isTamil ? 'டெலிவரி வழிமுறைகள்' : 'Delivery Instructions'}
               </Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                 {[
                   { id: 'door', label: isTamil ? '🚪 வாசலில்' : '🚪 Door' },
                   { id: 'call', label: isTamil ? '📞 அழைக்கவும்' : '📞 Call First' },
                   { id: 'bell', label: isTamil ? '🔕 மணி' : '🔕 Ring Bell' },
-                ].map(ins => (
-                  <TouchableOpacity
-                    key={ins.id}
-                    style={[
-                      styles.insChip,
-                      {
-                        backgroundColor: isDarkMode ? '#0E1710' : '#F1F5F9',
-                        borderColor: theme.glassBorder,
-                      },
-                      deliveryInstruction === ins.id && [
-                        styles.insChipActive,
-                        { backgroundColor: theme.neonGreen, borderColor: theme.neonGreen },
-                      ],
-                    ]}
-                    onPress={() => setDeliveryInstruction(ins.id)}
-                  >
-                    <Text
+                ].map(ins => {
+                  const isInsActive = deliveryInstruction === ins.id;
+                  return (
+                    <TouchableOpacity
+                      key={ins.id}
                       style={[
-                        styles.insChipText,
-                        { color: deliveryInstruction === ins.id ? '#050906' : theme.textWhite },
+                        styles.insChip,
+                        {
+                          backgroundColor: isDarkMode ? '#0E1710' : '#F8FAFC',
+                          borderColor: isInsActive
+                            ? '#10B981'
+                            : (isDarkMode ? 'rgba(255,255,255,0.12)' : '#CBD5E1'),
+                        },
+                        isInsActive && [
+                          styles.insChipActive,
+                          {
+                            backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.14)' : '#DCFCE7',
+                            borderColor: '#10B981',
+                          },
+                        ],
                       ]}
+                      onPress={() => setDeliveryInstruction(ins.id)}
+                      activeOpacity={0.75}
                     >
-                      {ins.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                      <View
+                        style={[
+                          styles.iosCheckboxSm,
+                          {
+                            borderColor: isInsActive
+                              ? '#10B981'
+                              : (isDarkMode ? 'rgba(148, 163, 184, 0.45)' : '#CBD5E1'),
+                            backgroundColor: isInsActive
+                              ? '#10B981'
+                              : (isDarkMode ? 'rgba(255,255,255,0.03)' : '#FFFFFF'),
+                          },
+                        ]}
+                      >
+                        {isInsActive && <Ionicons name="checkmark" size={11} color="#FFFFFF" />}
+                      </View>
+                      <Text
+                        style={[
+                          styles.insChipText,
+                          {
+                            color: isInsActive
+                              ? (isDarkMode ? '#34D399' : '#065F46')
+                              : theme.textWhite,
+                            fontWeight: isInsActive ? '700' : '600',
+                          },
+                        ]}
+                      >
+                        {ins.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
 
-            {/* Payment Options */}
+            {/* Payment Options (iOS Human Interface Guidelines Style) */}
             <View
               style={[
                 styles.checkoutSectionCard,
@@ -2839,42 +2988,129 @@ export const LiquidGlassHeader = ({
               <Text style={[styles.checkoutCardTitle, { color: theme.textWhite, marginBottom: 10 }]}>
                 {isTamil ? 'பணம் செலுத்தும் முறை' : 'Payment Method'}
               </Text>
-              {['UPI', 'COD', 'Card'].map(pm => (
-                <TouchableOpacity
-                  key={pm}
-                  style={[
-                    styles.pmOption,
-                    {
-                      backgroundColor: isDarkMode ? '#0E1710' : '#F8FAFC',
-                      borderColor: theme.glassBorder,
-                    },
-                    checkoutPaymentMethod === pm && [
-                      styles.pmOptionActive,
-                      { borderColor: theme.neonGreen, backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.12)' : '#DCFCE7' },
-                    ],
-                  ]}
-                  onPress={() => setCheckoutPaymentMethod(pm)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons
-                    name={
-                      checkoutPaymentMethod === pm
-                        ? 'radio-button-on'
-                        : 'radio-button-off'
-                    }
-                    size={19}
-                    color={checkoutPaymentMethod === pm ? theme.neonGreen : '#94A3B8'}
-                  />
-                  <Text style={[styles.pmOptionText, { color: theme.textWhite, flex: 1, marginLeft: 10 }]}>
-                    {pm === 'UPI' ? 'UPI (Google Pay, PhonePe, Paytm)' : pm === 'COD' ? (isTamil ? 'பொருளை பெற்ற பின் ரொக்கம் (COD)' : 'Cash on Delivery (COD)') : 'Credit / Debit Card'}
-                  </Text>
-                  {pm === 'UPI' && (
-                    <View style={[styles.instantTag, { backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.18)' : '#BBF7D0' }]}>
-                      <Text style={{ fontSize: 10, fontWeight: '800', color: theme.neonGreen }}>INSTANT</Text>
+              {[
+                {
+                  key: 'UPI',
+                  icon: 'qr-code-outline',
+                  title: isTamil ? 'UPI (உடனடி கட்டணம்)' : 'UPI (Google Pay, PhonePe, Paytm)',
+                  sub: isTamil ? 'GPay, PhonePe, Paytm, BHIM மூலம் உடனடியாக செலுத்தவும்' : 'Instant zero-fee payment via any UPI app',
+                  badge: 'INSTANT',
+                },
+                {
+                  key: 'COD',
+                  icon: 'cash-outline',
+                  title: isTamil ? 'பொருளை பெற்ற பின் ரொக்கம் (COD)' : 'Cash on Delivery (COD)',
+                  sub: isTamil ? 'வீட்டு வாசலில் ரொக்கம் அல்லது UPI QR மூலம் செலுத்தலாம்' : 'Pay cash or scan UPI QR at your doorstep',
+                },
+                {
+                  key: 'Card',
+                  icon: 'card-outline',
+                  title: isTamil ? 'கிரெடிட் / டெபிட் கார்டு' : 'Credit / Debit Card',
+                  sub: isTamil ? 'Visa, MasterCard, RuPay மற்றும் நெட் பேங்கிங்' : 'Visa, MasterCard, RuPay & NetBanking',
+                },
+              ].map((pmObj, idx) => {
+                const isSelected = checkoutPaymentMethod === pmObj.key;
+                return (
+                  <TouchableOpacity
+                    key={pmObj.key}
+                    style={[
+                      styles.pmOption,
+                      {
+                        backgroundColor: isDarkMode ? '#0E1710' : '#F8FAFC',
+                        borderColor: isSelected
+                          ? '#10B981'
+                          : (isDarkMode ? 'rgba(255,255,255,0.08)' : '#E2E8F0'),
+                        marginBottom: idx === 2 ? 0 : 8,
+                      },
+                      isSelected && [
+                        styles.pmOptionActive,
+                        {
+                          borderColor: '#10B981',
+                          backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.12)' : '#ECFDF5',
+                        },
+                      ],
+                    ]}
+                    onPress={() => setCheckoutPaymentMethod(pmObj.key)}
+                    activeOpacity={0.78}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: isSelected }}
+                  >
+                    {/* iOS Native Radio Control */}
+                    <View
+                      style={[
+                        styles.iosRadioOuter,
+                        {
+                          borderColor: isSelected
+                            ? '#10B981'
+                            : (isDarkMode ? 'rgba(148, 163, 184, 0.45)' : '#CBD5E1'),
+                          backgroundColor: isSelected
+                            ? '#10B981'
+                            : (isDarkMode ? 'rgba(255, 255, 255, 0.03)' : '#FFFFFF'),
+                        },
+                        isSelected && styles.iosRadioOuterActive,
+                      ]}
+                    >
+                      {isSelected && <View style={styles.iosRadioInnerDot} />}
                     </View>
-                  )}
-                </TouchableOpacity>
-              ))}
+
+                    {/* Method Icon Badge */}
+                    <View
+                      style={[
+                        styles.pmIconBadge,
+                        {
+                          backgroundColor: isSelected
+                            ? (isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5')
+                            : (isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9'),
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={pmObj.icon}
+                        size={18}
+                        color={isSelected ? '#10B981' : (isDarkMode ? '#94A3B8' : '#64748B')}
+                      />
+                    </View>
+
+                    {/* Method Title & Subtitle */}
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <Text
+                          style={[
+                            styles.pmOptionText,
+                            {
+                              color: theme.textWhite,
+                              fontWeight: isSelected ? '700' : '600',
+                            },
+                          ]}
+                        >
+                          {pmObj.title}
+                        </Text>
+                        {pmObj.badge && (
+                          <View
+                            style={[
+                              styles.instantTag,
+                              { backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5' },
+                            ]}
+                          >
+                            <Text style={{ fontSize: 9.5, fontWeight: '800', color: '#10B981', letterSpacing: 0.3 }}>
+                              {pmObj.badge}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.pmOptionSubText,
+                          { color: isDarkMode ? '#94A3B8' : '#64748B' },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {pmObj.sub}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             {/* Coupon Box */}
@@ -3539,13 +3775,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 11,
-    paddingHorizontal: 4,
+    paddingHorizontal: 10,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    marginBottom: 2,
   },
   filterOptionText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  iosRadioOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iosRadioOuterActive: {
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.28,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  iosRadioInnerDot: {
+    width: 8.5,
+    height: 8.5,
+    borderRadius: 4.25,
+    backgroundColor: '#FFFFFF',
+  },
+  iosCheckboxSm: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchBarBox: {
     height: 38,
@@ -3765,10 +4031,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   insChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1.2,
     borderColor: 'rgba(255,255,255,0.15)',
   },
   insChipActive: {},
@@ -3779,15 +4048,29 @@ const styles = StyleSheet.create({
   pmOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    gap: 11,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1.2,
   },
   pmOptionActive: {},
+  pmIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   pmOptionText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
+    letterSpacing: -0.1,
+  },
+  pmOptionSubText: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 2,
   },
   couponInput: {
     flex: 1,

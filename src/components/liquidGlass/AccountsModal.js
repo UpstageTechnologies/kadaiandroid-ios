@@ -1432,18 +1432,41 @@ export const AccountsModal = ({
                             {isActive && (
                               <View style={[styles.activeAddressBadge, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
                                 <Text style={styles.activeAddressBadgeText}>
-                                  ✓ {isTamil ? 'செயலில் உள்ளது' : 'ACTIVE'}
+                                  {isTamil ? 'செயலில் உள்ளது' : 'ACTIVE'}
                                 </Text>
                               </View>
                             )}
                           </View>
 
-                          <TouchableOpacity
-                            onPress={() => handleDeleteAddress(item)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          >
-                            <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                          </TouchableOpacity>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                            <TouchableOpacity
+                              onPress={() => handleSelectAddressAsActive(item)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              style={[
+                                styles.iosCheckCircle,
+                                {
+                                  borderColor: isActive
+                                    ? '#10B981'
+                                    : isDarkMode
+                                      ? 'rgba(148, 163, 184, 0.45)'
+                                      : '#CBD5E1',
+                                  backgroundColor: isActive
+                                    ? '#10B981'
+                                    : isDarkMode
+                                      ? 'rgba(255, 255, 255, 0.03)'
+                                      : '#FFFFFF',
+                                },
+                              ]}
+                            >
+                              {isActive && <View style={styles.iosRadioInnerDot} />}
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => handleDeleteAddress(item)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                              <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                            </TouchableOpacity>
+                          </View>
                         </View>
 
                         <Text style={[styles.addressStreetText, { color: isDarkMode ? '#FFFFFF' : '#0F172A' }]}>
@@ -1471,7 +1494,12 @@ export const AccountsModal = ({
                             onPress={() => handleSelectAddressAsActive(item)}
                             activeOpacity={0.8}
                           >
-                            <Ionicons name="checkmark-circle-outline" size={15} color={theme.neonGreen} />
+                            <View
+                              style={[
+                                styles.iosCheckCircleSm,
+                                { borderColor: theme.neonGreen },
+                              ]}
+                            />
                             <Text style={[styles.deliverHereBtnText, { color: theme.neonGreen }]}>
                               {isTamil ? 'இந்த முகவரிக்கு டெலிவரி செய்' : 'Deliver to this address'}
                             </Text>
@@ -1566,7 +1594,9 @@ export const AccountsModal = ({
                     <Text style={styles.paymentMethodSub}>Verified & Supported</Text>
                   </View>
                 </View>
-                <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
+                <View style={[styles.iosCheckCircle, { backgroundColor: '#10B981', borderColor: '#10B981' }]}>
+                  <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+                </View>
               </View>
 
               <View
@@ -1587,7 +1617,9 @@ export const AccountsModal = ({
                     <Text style={styles.paymentMethodSub}>Pay cash to local delivery partner</Text>
                   </View>
                 </View>
-                <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
+                <View style={[styles.iosCheckCircle, { backgroundColor: '#10B981', borderColor: '#10B981' }]}>
+                  <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+                </View>
               </View>
             </View>
           )}
@@ -1914,11 +1946,25 @@ export const AccountsModal = ({
                       >
                         {isTamil ? preset.labelTa : preset.label}
                       </Text>
-                      {isSelected && (
-                        <View style={styles.avatarSelectedBadge}>
-                          <Ionicons name="checkmark" size={10} color="#050906" />
-                        </View>
-                      )}
+                      <View
+                        style={[
+                          styles.avatarSelectedBadge,
+                          {
+                            backgroundColor: isSelected
+                              ? '#10B981'
+                              : isDarkMode
+                                ? 'rgba(15, 23, 42, 0.7)'
+                                : '#FFFFFF',
+                            borderColor: isSelected
+                              ? '#10B981'
+                              : isDarkMode
+                                ? 'rgba(148, 163, 184, 0.45)'
+                                : '#CBD5E1',
+                          },
+                        ]}
+                      >
+                        {isSelected && <Ionicons name="checkmark" size={10} color="#FFFFFF" />}
+                      </View>
                     </TouchableOpacity>
                   );
                 })}
@@ -3087,7 +3133,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
+    gap: 6,
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
@@ -3096,6 +3142,28 @@ const styles = StyleSheet.create({
   deliverHereBtnText: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  iosCheckCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iosCheckCircleSm: {
+    width: 15,
+    height: 15,
+    borderRadius: 7.5,
+    borderWidth: 1.6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iosRadioInnerDot: {
+    width: 8.5,
+    height: 8.5,
+    borderRadius: 4.25,
+    backgroundColor: '#FFFFFF',
   },
   /* Orders Section */
   ordersSection: {
@@ -3346,11 +3414,13 @@ const styles = StyleSheet.create({
   },
   avatarSelectedBadge: {
     position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    top: 4,
+    right: 4,
+    width: 17,
+    height: 17,
+    borderRadius: 8.5,
+    borderWidth: 1.5,
+    borderColor: '#10B981',
     backgroundColor: '#10B981',
     alignItems: 'center',
     justifyContent: 'center',
